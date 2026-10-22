@@ -118,7 +118,11 @@ const Login = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    navigate('/dashboard')
+    if (selectedRole === 'tallerista') {
+      navigate('/tallerista/inicio')
+    } else {
+      navigate('/dashboard')
+    }
   }
 
   return (
