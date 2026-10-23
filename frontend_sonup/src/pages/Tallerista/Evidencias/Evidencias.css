@@ -1,0 +1,493 @@
+/* ── Page ────────────────────────────────────────────────────────────────── */
+
+.evid-page {
+  padding: 1.5rem 2rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.evid-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.evid-titulo {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--color-text-dark);
+  line-height: 1.2;
+}
+
+.evid-sub {
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+}
+
+.btn-nueva-evid {
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  padding: 0.6rem 1.25rem;
+  background: var(--color-text-dark);
+  color: var(--color-white);
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s;
+}
+.btn-nueva-evid:hover { background: var(--color-primary-dark); }
+
+.evid-vacío {
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 3rem 0;
+}
+
+/* ── Grid ────────────────────────────────────────────────────────────────── */
+
+.evid-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+/* ── Card ────────────────────────────────────────────────────────────────── */
+
+.evid-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+.evid-card:hover {
+  box-shadow: 0 4px 16px rgba(23, 54, 50, 0.1);
+}
+
+.evid-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Play button (circle with icon) ─────────────────────────────────────── */
+
+.evid-play {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-text-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.evid-play--lg {
+  width: 64px;
+  height: 64px;
+}
+
+/* ── Card body ───────────────────────────────────────────────────────────── */
+
+.evid-card__body {
+  padding: 0.9rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.evid-card__titulo {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--color-text-dark);
+}
+
+.evid-card__fecha {
+  font-size: var(--fs-xs);
+  color: var(--color-primary);
+}
+
+.btn-ver-evid {
+  margin-top: 0.35rem;
+  align-self: flex-start;
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+  background: var(--color-white);
+  color: var(--color-text-dark);
+  border: 1.5px solid var(--color-border);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: border-color 0.18s, color 0.18s;
+}
+.btn-ver-evid:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ── Modal overlay ───────────────────────────────────────────────────────── */
+
+.evid-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 54, 50, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 100;
+}
+
+.evid-modal {
+  background: var(--color-white);
+  border-radius: 16px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  box-shadow: 0 8px 32px rgba(23, 54, 50, 0.2);
+}
+
+/* ── Modal header ────────────────────────────────────────────────────────── */
+
+.evid-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.evid-modal__tag {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+}
+
+.evid-modal__titulo {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--color-text-dark);
+  line-height: 1.2;
+}
+
+.evid-modal__close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.evid-modal__close:hover {
+  background: var(--color-bg);
+  color: var(--color-text-dark);
+}
+
+/* ── Modal thumbnail ─────────────────────────────────────────────────────── */
+
+.evid-modal-thumb {
+  width: 100%;
+  border-radius: 10px;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Info row ────────────────────────────────────────────────────────────── */
+
+.evid-info-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.evid-info-item {
+  background: var(--color-bg);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+}
+
+.evid-info-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.evid-info-valor {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--color-text-dark);
+}
+
+/* ── Modal description ───────────────────────────────────────────────────── */
+
+.evid-modal-desc {
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+/* ── Modal actions ───────────────────────────────────────────────────────── */
+
+.evid-modal__acciones {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.btn-descargar-evid {
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  background: var(--color-white);
+  color: var(--color-text-dark);
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: border-color 0.18s;
+}
+.btn-descargar-evid:hover { border-color: var(--color-text-dark); }
+
+.btn-compartir {
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
+  background: var(--color-text-dark);
+  color: var(--color-white);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.btn-compartir:hover { background: var(--color-primary-dark); }
+
+/* ── Upload area ─────────────────────────────────────────────────────────── */
+
+.evid-upload-area {
+  width: 100%;
+  min-height: 180px;
+  border: 2px dashed var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  text-align: center;
+  padding: 2rem 1rem;
+  transition: border-color 0.18s, background 0.18s;
+}
+.evid-upload-area:hover,
+.evid-upload-area:focus {
+  border-color: var(--color-primary);
+  background: var(--color-teal-light);
+  outline: none;
+}
+
+.evid-upload__icono {
+  color: var(--color-text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.evid-upload__texto {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.evid-upload__hint {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── File preview (after upload) ─────────────────────────────────────────── */
+
+.evid-file-preview {
+  width: 100%;
+  border-radius: 12px;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  transition: opacity 0.18s;
+}
+.evid-file-preview:hover { opacity: 0.9; }
+
+.evid-file-preview__nombre {
+  font-size: var(--fs-xs);
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 5px;
+  padding: 0.2rem 0.6rem;
+  max-width: 85%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evid-input-hidden { display: none; }
+
+/* ── Create form fields ──────────────────────────────────────────────────── */
+
+.evid-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.evid-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.evid-campo--full { grid-column: 1 / -1; }
+
+.evid-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.evid-select,
+.evid-input {
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  color: var(--color-text-dark);
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.18s;
+}
+.evid-select:focus,
+.evid-input:focus {
+  border-color: var(--color-primary);
+  background: var(--color-white);
+}
+
+.evid-textarea {
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  color: var(--color-text-dark);
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  outline: none;
+  resize: vertical;
+  width: 100%;
+  line-height: 1.55;
+  transition: border-color 0.18s;
+}
+.evid-textarea:focus {
+  border-color: var(--color-primary);
+  background: var(--color-white);
+}
+
+.btn-cancelar-evid {
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  background: var(--color-white);
+  color: var(--color-text-dark);
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.18s;
+}
+.btn-cancelar-evid:hover { border-color: var(--color-text-dark); }
+
+.btn-guardar-evid {
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
+  background: var(--color-text-dark);
+  color: var(--color-white);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.btn-guardar-evid:hover:not(:disabled) { background: var(--color-primary-dark); }
+.btn-guardar-evid:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .evid-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .evid-page { padding: 1rem 1rem 2rem; }
+
+  .evid-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .btn-nueva-evid { width: 100%; text-align: center; }
+
+  .evid-grid { grid-template-columns: 1fr; }
+
+  .evid-info-row { grid-template-columns: 1fr; }
+
+  .evid-modal { padding: 1.25rem; }
+
+  .evid-form-grid { grid-template-columns: 1fr; }
+  .evid-campo--full { grid-column: auto; }
+
+  .evid-modal__acciones {
+    flex-direction: column-reverse;
+  }
+  .btn-descargar-evid,
+  .btn-compartir,
+  .btn-cancelar-evid,
+  .btn-guardar-evid {
+    width: 100%;
+    justify-content: center;
+  }
+}
