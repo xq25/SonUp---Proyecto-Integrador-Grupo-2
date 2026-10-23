@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login               from './pages/Login/Login'
 import Dashboard           from './pages/Dashboard/Dashboard'
+import AcudienteHome       from './pages/Acudiente/AcudienteHome'
 import TalleristaLayout    from './layouts/TalleristaLayout/TalleristaLayout'
 import TalleristaHome      from './pages/Tallerista/TalleristaHome'
 import ParticipantePerfil  from './pages/Tallerista/ParticipantePerfil/ParticipantePerfil'
@@ -17,6 +18,7 @@ const App = () => (
       <Route path="/"      element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/acudiente" element={<AcudienteHome />} />
 
       {/* Rutas del Tallerista — comparten sidebar */}
       <Route element={<TalleristaLayout />}>

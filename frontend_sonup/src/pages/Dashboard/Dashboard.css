@@ -1,39 +1,285 @@
-.dashboard {
-  min-height: 100vh;
+/* ── Página ───────────────────────────────────────────────────────────────── */
+
+.joven-page {
+  min-height: 100dvh;
+  background: #F0F1EF;
   display: flex;
   flex-direction: column;
+  gap: clamp(1.25rem, 3vw, 2rem);
+  padding: clamp(1.25rem, 3vw, 2rem) clamp(1rem, 4vw, 3rem);
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.joven-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.joven-sound-btn {
+  background: #FFFFFF;
+  border: 1.5px solid #DFE5E2;
+  border-radius: 10px;
+  padding: 0.5rem;
+  color: #687974;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: border-color 0.2s, color 0.2s;
+}
+.joven-sound-btn:hover {
+  border-color: #176D65;
+  color: #176D65;
+}
+
+/* ── Saludo ───────────────────────────────────────────────────────────────── */
+
+.joven-saludo__titulo {
+  font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+  font-weight: 800;
+  color: #173632;
+  line-height: 1.2;
+}
+
+.joven-saludo__sub {
+  font-size: clamp(0.82rem, 1.5vw, 1rem);
+  color: #687974;
+  margin-top: 0.25rem;
+}
+
+/* ── Música — hero card ───────────────────────────────────────────────────── */
+
+.joven-musica-card {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  background: linear-gradient(135deg, #176D65 0%, #10574F 100%);
+  border: none;
+  border-radius: 18px;
+  padding: clamp(1.4rem, 3vw, 2rem) clamp(1.4rem, 3vw, 2.25rem);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  box-shadow: 0 4px 24px rgba(23,109,101,.28);
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.joven-musica-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(23,109,101,.35);
+}
+
+.joven-musica-card__icono {
+  width: clamp(48px, 7vw, 64px);
+  height: clamp(48px, 7vw, 64px);
+  border-radius: 14px;
+  background: rgba(255,255,255,.18);
+  color: #FFFFFF;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  background-color: var(--color-bg);
-  padding: 2rem;
+  flex-shrink: 0;
 }
 
-.dashboard__title {
-  font-size: var(--fs-2xl);
+.joven-musica-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  z-index: 1;
+}
+
+.joven-musica-card__tag {
+  font-size: clamp(0.6rem, 1vw, 0.7rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #F49A18;
+}
+
+.joven-musica-card__titulo {
+  font-size: clamp(1.35rem, 3vw, 1.9rem);
   font-weight: 800;
-  color: var(--color-primary);
+  color: #FFFFFF;
+  line-height: 1.15;
 }
 
-.dashboard__subtitle {
-  font-size: var(--fs-base);
-  color: var(--color-text-muted);
+.joven-musica-card__sub {
+  font-size: clamp(0.78rem, 1.2vw, 0.9rem);
+  color: rgba(255,255,255,.75);
 }
 
-.dashboard__back {
-  margin-top: 1rem;
-  background: none;
-  border: 1.5px solid var(--color-primary);
-  border-radius: 8px;
-  padding: 0.6rem 1.25rem;
-  font-size: var(--fs-sm);
+.joven-musica-card__deco {
+  position: absolute;
+  right: -50px;
+  top: -50px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.07);
+  pointer-events: none;
+}
+
+/* ── Grid de 4 módulos ────────────────────────────────────────────────────── */
+
+.joven-modulos {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+}
+
+.joven-modulo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border-radius: 16px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  min-height: clamp(130px, 16vw, 190px);
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.joven-modulo:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(23,54,50,.13);
+}
+
+/* Variante naranja (Lo que logré) */
+.joven-modulo--accent {
+  background: #FFF0D8;
+  color: #173632;
+  box-shadow: 0 2px 8px rgba(244,154,24,.1);
+}
+.joven-modulo--accent .joven-modulo__icono {
+  background: rgba(244,154,24,.2);
+  color: #F49A18;
+}
+
+/* Variante blanca (resto) */
+.joven-modulo--default {
+  background: #FFFFFF;
+  color: #173632;
+  border: 1px solid #DFE5E2;
+  box-shadow: 0 2px 8px rgba(23,54,50,.05);
+}
+.joven-modulo--default .joven-modulo__icono {
+  background: #E2F2EF;
+  color: #176D65;
+}
+
+.joven-modulo__icono {
+  width: clamp(40px, 5.5vw, 52px);
+  height: clamp(40px, 5.5vw, 52px);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.joven-modulo__label {
+  font-size: clamp(0.88rem, 1.4vw, 1.05rem);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+/* ── Card de logros ───────────────────────────────────────────────────────── */
+
+.joven-logros-card {
+  background: #FFFFFF;
+  border: 1px solid #DFE5E2;
+  border-radius: 16px;
+  padding: clamp(1.25rem, 3vw, 1.75rem) clamp(1.25rem, 3vw, 2rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 10px rgba(23,54,50,.06);
+}
+
+.joven-logros-card__titulo {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  font-weight: 800;
+  color: #173632;
+  line-height: 1.2;
+}
+
+.joven-logros-card__sub {
+  font-size: clamp(0.78rem, 1.2vw, 0.9rem);
+  color: #687974;
+  margin-top: 0.3rem;
+}
+
+.joven-estrellas {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+
+.joven-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.5rem;
+}
+
+.joven-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #FFFFFF;
+  border: 1.5px solid #DFE5E2;
+  border-radius: 12px;
+  padding: 0.75rem 2.5rem;
+  font-size: clamp(0.82rem, 1.2vw, 0.92rem);
   font-weight: 700;
   font-family: inherit;
-  color: var(--color-primary);
+  color: #173632;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: border-color 0.2s, color 0.2s;
+}
+.joven-logout:hover {
+  border-color: #176D65;
+  color: #176D65;
 }
 
-.dashboard__back:hover {
-  background-color: rgba(28, 92, 69, 0.08);
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 860px) {
+  .joven-modulos {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .joven-musica-card__deco { display: none; }
+
+  .joven-logros-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 420px) {
+  .joven-modulos {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .joven-modulo {
+    min-height: 110px;
+  }
 }

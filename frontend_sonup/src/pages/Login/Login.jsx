@@ -118,23 +118,19 @@ const Login = () => {
 
   const roleLabel = ROLES.find(r => r.id === selectedRole)?.label ?? ''
 
+  const getDestino = () => {
+    if (selectedRole === 'tallerista') return '/tallerista/inicio'
+    if (selectedRole === 'acudiente') return '/acudiente'
+    return '/dashboard'
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (selectedRole === 'tallerista') {
-      navigate('/tallerista/inicio')
-    } else {
-      navigate('/dashboard')
-    }
+    navigate(getDestino())
   }
 
   const handleGoogleLogin = useGoogleLogin({
-    onSuccess: () => {
-      if (selectedRole === 'tallerista') {
-        navigate('/tallerista/inicio')
-      } else {
-        navigate('/dashboard')
-      }
-    },
+    onSuccess: () => navigate(getDestino()),
     onError: () => {
       setGoogleError('No se pudo iniciar sesión con Google. Inténtalo de nuevo.')
     },
