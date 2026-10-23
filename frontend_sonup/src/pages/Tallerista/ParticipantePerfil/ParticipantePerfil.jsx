@@ -33,6 +33,15 @@ const indicadores = [
 
 const apoyos = ['Instrucciones cortas', 'Práctica guiada', 'Grupos pequeños', 'Apoyos visuales']
 
+const ANAMNESIS_DETALLE = {
+  diagnostico:   'Discapacidad intelectual leve. Evaluada por equipo interdisciplinar en 2023.',
+  comunicacion:  ['Comunicación verbal simple', 'Apoyos visuales', 'Lenguaje sencillo'],
+  cognitivo:     ['Instrucciones cortas', 'Práctica guiada', 'Repetición con variación'],
+  social:        ['Grupos pequeños', 'Rol activo definido', 'Mediación entre pares'],
+  observaciones: 'Responde bien a rutinas estructuradas. Prefiere ver el resultado final. Sensibilidad en ambientes ruidosos.',
+  actualizacion: 'Laura Ríos · 15 sep 2026',
+}
+
 const seguimiento = [
   { fecha: '10 oct', texto: 'Siguió el ritmo rápido sola por primera vez.',           tag: 'Música · Laura R.' },
   { fecha: '3 oct',  texto: 'Participó con mayor autonomía en la actividad grupal.',   tag: 'Música · Equipo pedagógico' },
@@ -89,6 +98,7 @@ const FileTextIcon = () => (
 const ParticipantePerfil = () => {
   const navigate = useNavigate()
   const [moduloActivo, setModuloActivo] = useState('Música')
+  const [verMas,       setVerMas]       = useState(false)
 
   return (
     <div className="perfil-page">
@@ -174,9 +184,17 @@ const ParticipantePerfil = () => {
             ))}
           </div>
 
-          {/* Indicadores logrados */}
+          {/* ── Grid: indicadores (izq) + certificados (der) ── */}
+          <div className="perfil-indicadores-fila">
+
           <div className="card">
-            <h3 className="card-titulo">Indicadores logrados en {moduloActivo}</h3>
+            <div className="indicadores-cabecera">
+              <h3 className="card-titulo">Indicadores logrados en {moduloActivo}</h3>
+              <button className="btn-descargar-grafica" aria-label="Descargar gráfico">
+                <DownloadIcon />
+                Descargar
+              </button>
+            </div>
             <div className="grafica">
               {indicadores.map((d, i) => {
                 const esActual = i === indicadores.length - 1
@@ -200,6 +218,53 @@ const ParticipantePerfil = () => {
             </p>
           </div>
 
+            {/* Certificado + Apoyo gráfico — columna derecha del grid */}
+            <div className="perfil-fila-derecha">
+
+              <div className="card">
+                <div className="cert-cabecera">
+                  <h3 className="card-titulo">Certificado</h3>
+                  <button className="btn-ver-todo" onClick={() => navigate('/tallerista/certificados')}>Ver todo</button>
+                </div>
+                <p className="cert-sub">Recursos de {moduloActivo}</p>
+                <div className="cert-item">
+                  <span className="cert-icono"><CertIcon /></span>
+                  <div className="cert-info">
+                    <p className="cert-nombre">Proceso musical</p>
+                    <p className="cert-tipo">Certificado · 12 horas</p>
+                  </div>
+                  <button
+                    className="cert-accion-btn"
+                    onClick={() => navigate('/tallerista/certificados')}
+                    aria-label="Descargar certificado"
+                  >
+                    <DownloadIcon />
+                  </button>
+                </div>
+              </div>
+
+              <div className="card">
+                <h3 className="card-titulo">Apoyo gráfico</h3>
+                <p className="cert-sub">Videos de {moduloActivo}</p>
+                <div className="cert-item">
+                  <span className="cert-icono"><VideoIcon /></span>
+                  <div className="cert-info">
+                    <p className="cert-nombre">Siguió el ritmo rápido sola por primera vez.</p>
+                    <p className="cert-tipo">Video · 10 de octubre</p>
+                  </div>
+                  <button
+                    className="cert-accion-btn"
+                    onClick={() => navigate('/tallerista/evidencias')}
+                    aria-label="Ver video"
+                  >
+                    <ChevronRightIcon />
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>{/* /perfil-indicadores-fila */}
+
           {/* Información prioritaria */}
           <div className="card card--prioritaria">
             <div className="prioritaria-cuerpo">
@@ -208,54 +273,54 @@ const ParticipantePerfil = () => {
                 <h3 className="prioritaria-titulo">Anamnesis y perfil de apoyo</h3>
                 <p className="prioritaria-apoyos">{apoyos.join(' · ')}</p>
               </div>
-              <button className="btn-ver-mas">Ver más ↓</button>
+              <button className="btn-ver-mas" onClick={() => setVerMas(v => !v)}>
+                {verMas ? 'Ver menos ↑' : 'Ver más ↓'}
+              </button>
             </div>
+
+            {verMas && (
+              <div className="anamnesis-expandida">
+                <p className="anamnesis-dx">{ANAMNESIS_DETALLE.diagnostico}</p>
+                <div className="anamnesis-grupos">
+                  <div className="anamnesis-grupo">
+                    <p className="anamnesis-grupo__titulo">Apoyos comunicativos</p>
+                    <div className="anamnesis-tags">
+                      {ANAMNESIS_DETALLE.comunicacion.map(t => <span key={t} className="anamnesis-tag">{t}</span>)}
+                    </div>
+                  </div>
+                  <div className="anamnesis-grupo">
+                    <p className="anamnesis-grupo__titulo">Apoyos cognitivos</p>
+                    <div className="anamnesis-tags">
+                      {ANAMNESIS_DETALLE.cognitivo.map(t => <span key={t} className="anamnesis-tag">{t}</span>)}
+                    </div>
+                  </div>
+                  <div className="anamnesis-grupo">
+                    <p className="anamnesis-grupo__titulo">Apoyos sociales</p>
+                    <div className="anamnesis-tags">
+                      {ANAMNESIS_DETALLE.social.map(t => <span key={t} className="anamnesis-tag">{t}</span>)}
+                    </div>
+                  </div>
+                </div>
+                <p className="anamnesis-obs">{ANAMNESIS_DETALLE.observaciones}</p>
+                <p className="anamnesis-update">Actualizado por: {ANAMNESIS_DETALLE.actualizacion}</p>
+              </div>
+            )}
           </div>
 
-          {/* Fila inferior */}
-          <div className="perfil-fila">
-
-            {/* Seguimiento reciente */}
-            <div className="card">
-              <h3 className="card-titulo">Seguimiento reciente de {moduloActivo}</h3>
-              <ul className="seguimiento-lista" role="list">
-                {seguimiento.map((s, i) => (
-                  <li key={i} className="seguimiento-item">
-                    <span className="seguimiento-fecha">{s.fecha}</span>
-                    <div>
-                      <p className="seguimiento-texto">{s.texto}</p>
-                      <p className="seguimiento-tag">{s.tag}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Certificados */}
-            <div className="card">
-              <div className="cert-cabecera">
-                <h3 className="card-titulo">Certificados y apoyo gráfico</h3>
-                <button className="btn-ver-todo" onClick={() => navigate('/tallerista/certificados')}>Ver todo</button>
-              </div>
-              <p className="cert-sub">Recursos de {moduloActivo}</p>
-              <ul className="cert-lista" role="list">
-                {certificados.map((c, i) => (
-                  <li key={i} className="cert-item">
-                    <span className="cert-icono">
-                      {c.variante === 'cert' ? <CertIcon /> : <VideoIcon />}
-                    </span>
-                    <div className="cert-info">
-                      <p className="cert-nombre">{c.nombre}</p>
-                      <p className="cert-tipo">{c.tipo}</p>
-                    </div>
-                    <span className="cert-accion">
-                      {c.variante === 'cert' ? <DownloadIcon /> : <ChevronRightIcon />}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
+          {/* Seguimiento reciente — ancho completo */}
+          <div className="card">
+            <h3 className="card-titulo">Seguimiento reciente de {moduloActivo}</h3>
+            <ul className="seguimiento-lista" role="list">
+              {seguimiento.map((s, i) => (
+                <li key={i} className="seguimiento-item">
+                  <span className="seguimiento-fecha">{s.fecha}</span>
+                  <div>
+                    <p className="seguimiento-texto">{s.texto}</p>
+                    <p className="seguimiento-tag">{s.tag}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
       </div>
