@@ -60,6 +60,8 @@ const Certificados = () => {
   const [certificados,  setCertificados]  = useState(CERTS_DEMO)
   const [detalle,       setDetalle]       = useState(null)
   const [mostrarCrear,  setMostrarCrear]  = useState(false)
+  const [mostrarEnviar, setMostrarEnviar] = useState(false)
+  const [certEnviar,    setCertEnviar]    = useState(null)
   const [form, setForm] = useState({
     participante: 'Mariana Gómez',
     modulo:       'Música',
@@ -196,7 +198,7 @@ const Certificados = () => {
               <button className="btn-descargar" onClick={descargar}>
                 <DownloadIcon /> Descargar
               </button>
-              <button className="btn-enviar" onClick={() => setDetalle(null)}>
+              <button className="btn-enviar" onClick={() => { setCertEnviar(detalle); setDetalle(null); setMostrarEnviar(true) }}>
                 Enviar a la familia
               </button>
             </div>
@@ -263,6 +265,63 @@ const Certificados = () => {
               <button className="btn-cancelar" onClick={() => setMostrarCrear(false)}>Cancelar</button>
               <button className="btn-crear-cert" onClick={crearCert} disabled={!form.nombre.trim()}>
                 Crear certificado
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal enviar ── */}
+      {mostrarEnviar && (
+        <div className="modal-overlay" onClick={() => setMostrarEnviar(false)} role="dialog" aria-modal="true">
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+
+            <div className="modal-head">
+              <div>
+                <p className="modal-tag">CORREO A LA FAMILIA</p>
+                <h2 className="modal-titulo">Enviar certificado</h2>
+              </div>
+              <button className="modal-close" onClick={() => setMostrarEnviar(false)} aria-label="Cerrar">
+                <XIcon />
+              </button>
+            </div>
+
+            <div className="cert-enviar-campos">
+              <div className="cert-campo">
+                <label className="cert-label">Para</label>
+                <input
+                  type="email"
+                  className="cert-input"
+                  defaultValue="patricia.gomez@correo.com"
+                  placeholder="correo@ejemplo.com"
+                />
+              </div>
+              <div className="cert-campo">
+                <label className="cert-label">Asunto</label>
+                <input
+                  type="text"
+                  className="cert-input"
+                  defaultValue={`Certificado: ${certEnviar?.nombre ?? ''} — ${certEnviar?.participante ?? ''}`}
+                />
+              </div>
+              <div className="cert-campo">
+                <label className="cert-label">Mensaje</label>
+                <textarea
+                  className="cert-textarea"
+                  rows={4}
+                  defaultValue={`Estimada familia,\n\nAdjunto encontrarán el certificado "${certEnviar?.nombre}" correspondiente a ${certEnviar?.participante}.\n\nEquipo Son Up`}
+                />
+              </div>
+              <p className="cert-enviar-nota">
+                El certificado se adjuntará automáticamente como PDF al enviar.
+              </p>
+            </div>
+
+            <div className="modal-acciones">
+              <button className="btn-cancelar" onClick={() => setMostrarEnviar(false)}>Cancelar</button>
+              <button className="btn-enviar" disabled>
+                Enviar
               </button>
             </div>
 

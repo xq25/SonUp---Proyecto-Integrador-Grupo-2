@@ -454,6 +454,22 @@
 .btn-crear-cert:hover:not(:disabled) { background: var(--color-primary-dark); }
 .btn-crear-cert:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* ── Modal enviar ────────────────────────────────────────────────────────── */
+
+.cert-enviar-campos {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cert-enviar-nota {
+  font-size: 0.75rem;
+  color: #687974;
+  background: #F0F1EF;
+  border-radius: 7px;
+  padding: 0.5rem 0.75rem;
+}
+
 /* ── Print ───────────────────────────────────────────────────────────────── */
 
 @media print {

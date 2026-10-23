@@ -316,6 +316,13 @@
   cursor: not-allowed;
 }
 
+.google-error {
+  font-size: var(--fs-xs);
+  color: #c0392b;
+  text-align: center;
+  margin-top: -0.25rem;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .login-page {

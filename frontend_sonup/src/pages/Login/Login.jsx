@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useGoogleLogin } from '@react-oauth/google'
 import Logo     from '../../components/Logo/Logo'
 import RoleCard from '../../components/RoleCard/RoleCard'
 import './Login.css'
@@ -113,6 +114,7 @@ const Login = () => {
   const [email, setEmail]               = useState('')
   const [password, setPassword]         = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [googleError, setGoogleError]   = useState('')
 
   const roleLabel = ROLES.find(r => r.id === selectedRole)?.label ?? ''
 
@@ -124,6 +126,19 @@ const Login = () => {
       navigate('/dashboard')
     }
   }
+
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: () => {
+      if (selectedRole === 'tallerista') {
+        navigate('/tallerista/inicio')
+      } else {
+        navigate('/dashboard')
+      }
+    },
+    onError: () => {
+      setGoogleError('No se pudo iniciar sesión con Google. Inténtalo de nuevo.')
+    },
+  })
 
   return (
     <div className="login-page">
@@ -229,10 +244,11 @@ const Login = () => {
             <span>o continúa con</span>
           </div>
 
-          <button type="button" className="btn-google" disabled>
+          <button type="button" className="btn-google" onClick={handleGoogleLogin}>
             <GoogleIcon />
             Iniciar sesión con Google
           </button>
+          {googleError && <p className="google-error">{googleError}</p>}
 
         </div>
       </main>

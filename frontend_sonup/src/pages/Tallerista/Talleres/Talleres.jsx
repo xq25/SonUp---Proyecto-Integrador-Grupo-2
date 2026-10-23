@@ -241,12 +241,11 @@ const Talleres = () => {
           <h1 className="talleres-titulo">{TITULOS[fase].h}</h1>
           <p className="talleres-sub">{TITULOS[fase].sub}</p>
         </div>
-        <div className="talleres-header__acciones">
-          <button className="btn-borrador">Guardar borrador</button>
-          {fase === 3 && (
+        {fase === 3 && (
+          <div className="talleres-header__acciones">
             <button className="btn-finalizar">Finalizar sesión</button>
-          )}
-        </div>
+          </div>
+        )}
       </header>
 
       {/* ── Stepper ── */}

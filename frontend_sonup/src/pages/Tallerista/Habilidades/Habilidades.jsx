@@ -179,9 +179,6 @@ const Habilidades = () => {
           <h1 className="hab-header__titulo">Habilidades, actividades y juegos</h1>
           <p className="hab-header__sub">Configura qué se trabaja, cómo se mide y cómo se integra con Aula-Up.</p>
         </div>
-        <div className="hab-header__acciones">
-          <button className="btn-hab-borrador">Guardar borrador</button>
-        </div>
       </header>
 
       {/* ── Stats ── */}

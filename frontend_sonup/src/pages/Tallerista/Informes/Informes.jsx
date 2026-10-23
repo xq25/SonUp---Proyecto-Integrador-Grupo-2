@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Logo from '../../../components/Logo/Logo'
 import './Informes.css'
 
@@ -28,6 +29,12 @@ const CheckCircleIcon = () => (
 const PendingCircleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
     <circle cx="12" cy="12" r="11" fill="none" stroke="#F49A18" strokeWidth="2"/>
+  </svg>
+)
+
+const XIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
   </svg>
 )
 
@@ -91,6 +98,7 @@ const BarrasProgreso = () => (
 
 const Informes = () => {
   const handleDescargarPDF = () => window.print()
+  const [mostrarEnviar, setMostrarEnviar] = useState(false)
 
   return (
     <div className="inf-page">
@@ -105,7 +113,7 @@ const Informes = () => {
           <button className="btn-descargar" onClick={handleDescargarPDF}>
             <DownloadIcon /> Descargar PDF
           </button>
-          <button className="btn-enviar" disabled>
+          <button className="btn-enviar" onClick={() => setMostrarEnviar(true)}>
             <SendIcon /> Enviar a la familia
           </button>
         </div>
@@ -228,6 +236,65 @@ const Informes = () => {
         </aside>
 
       </div>
+      {/* ── Modal enviar a la familia ── */}
+      {mostrarEnviar && (
+        <div className="inf-modal-overlay" onClick={() => setMostrarEnviar(false)} role="dialog" aria-modal="true">
+          <div className="inf-modal" onClick={e => e.stopPropagation()}>
+
+            <div className="inf-modal__head">
+              <div>
+                <p className="inf-modal__tag">CORREO A LA FAMILIA</p>
+                <h2 className="inf-modal__titulo">Enviar informe</h2>
+              </div>
+              <button className="inf-modal__close" onClick={() => setMostrarEnviar(false)} aria-label="Cerrar">
+                <XIcon />
+              </button>
+            </div>
+
+            <div className="inf-modal__campos">
+              <div className="inf-modal__campo">
+                <label className="inf-modal__label">Para</label>
+                <input
+                  type="email"
+                  className="inf-modal__input"
+                  defaultValue="patricia.gomez@correo.com"
+                  placeholder="correo@ejemplo.com"
+                />
+              </div>
+              <div className="inf-modal__campo">
+                <label className="inf-modal__label">Asunto</label>
+                <input
+                  type="text"
+                  className="inf-modal__input"
+                  defaultValue="Informe del primer semestre 2026 — Mariana Gómez"
+                />
+              </div>
+              <div className="inf-modal__campo">
+                <label className="inf-modal__label">Mensaje</label>
+                <textarea
+                  className="inf-modal__textarea"
+                  rows={5}
+                  defaultValue={`Estimada familia,\n\nAdjunto encontrarán el informe del primer semestre 2026 de Mariana. En él encontrarán un resumen de sus logros, avances y recomendaciones para el hogar.\n\nQuedamos atentos a cualquier pregunta.\n\nEquipo Son Up`}
+                />
+              </div>
+              <p className="inf-modal__nota">
+                El informe se adjuntará automáticamente como PDF al enviar.
+              </p>
+            </div>
+
+            <div className="inf-modal__acciones">
+              <button className="inf-modal__btn-cancelar" onClick={() => setMostrarEnviar(false)}>
+                Cancelar
+              </button>
+              <button className="inf-modal__btn-enviar" disabled>
+                <SendIcon /> Enviar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
