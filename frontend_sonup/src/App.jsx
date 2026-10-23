@@ -1,7 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login               from './pages/Login/Login'
 import Dashboard           from './pages/Dashboard/Dashboard'
+import MisClases            from './pages/Dashboard/MisClases'
+import LoQueLogre           from './pages/Dashboard/LoQueLogre'
+import MisVideos            from './pages/Dashboard/MisVideos'
+import MisCertificados      from './pages/Dashboard/MisCertificados'
 import AcudienteHome       from './pages/Acudiente/AcudienteHome'
+import AcudienteInforme    from './pages/Acudiente/AcudienteInforme'
 import TalleristaLayout    from './layouts/TalleristaLayout/TalleristaLayout'
 import TalleristaHome      from './pages/Tallerista/TalleristaHome'
 import ParticipantePerfil  from './pages/Tallerista/ParticipantePerfil/ParticipantePerfil'
@@ -18,7 +23,16 @@ const App = () => (
       <Route path="/"      element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/joven/mis-clases" element={<MisClases />} />
+      <Route path="/joven/lo-que-logre" element={<LoQueLogre />} />
+      <Route path="/joven/mis-videos" element={<MisVideos />} />
+      <Route path="/joven/mis-certificados" element={<MisCertificados />} />
+      <Route path="/mis-clases" element={<MisClases />} />
+      <Route path="/lo-que-logre" element={<LoQueLogre />} />
+      <Route path="/mis-videos" element={<MisVideos />} />
+      <Route path="/mis-certificados" element={<MisCertificados />} />
       <Route path="/acudiente" element={<AcudienteHome />} />
+      <Route path="/acudiente/informe" element={<AcudienteInforme />} />
 
       {/* Rutas del Tallerista — comparten sidebar */}
       <Route element={<TalleristaLayout />}>

@@ -28,25 +28,128 @@ const ChevronLeftIcon = () => (
   </svg>
 )
 
-/* ─── Calendar ───────────────────────────────────────────────────────────── */
+/* ─── Calendar & Timezone Colombia ───────────────────────────────────────── */
 
 const CAL_SEMANA = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do']
 const CAL_OFFSET = 1   // 1 oct 2024 = martes (lun=0)
 const CAL_TOTAL  = 31
 
-/* ─── Data ───────────────────────────────────────────────────────────────── */
+const MESES_ABR = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC']
 
-const FECHAS = [
-  { id: 'musica',    dia: 14, mes: 'OCT', modulo: 'Música'   },
-  { id: 'artes',     dia: 18, mes: 'OCT', modulo: 'Artes'    },
-  { id: 'panaderia', dia: 21, mes: 'OCT', modulo: 'Panadería' },
+// Obtiene la fecha YYYY-MM-DD en la zona horaria de Colombia (America/Bogota)
+const getColombiaToday = () => {
+  const formatter = new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  const parts = formatter.formatToParts(new Date())
+  const y = parts.find(p => p.type === 'year').value
+  const m = parts.find(p => p.type === 'month').value
+  const d = parts.find(p => p.type === 'day').value
+  return `${y}-${m}-${d}`
+}
+
+const getColombiaCurrentTime = () => {
+  return new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'America/Bogota',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(new Date())
+}
+
+const formatFechaLargaColombia = (dateStr) => {
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number)
+    const d = new Date(year, month - 1, day)
+    return new Intl.DateTimeFormat('es-CO', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(d)
+  } catch {
+    return dateStr
+  }
+}
+
+// Catálogo base de actividades
+const ACTIVIDADES_BASE = [
+  {
+    modulo: 'Música',
+    nombre: 'Ritmo con palmas',
+    hora: '10:00 a. m.',
+    objetivo: 'Practicar el pulso lento con el grupo usando palmas y percusión corporal.',
+    para_llevar: 'Ropa cómoda y ganas de participar.',
+  },
+  {
+    modulo: 'Artes',
+    nombre: 'Mezcla de colores',
+    hora: '2:00 p. m.',
+    objetivo: 'Explorar combinaciones de colores primarios y secundarios con pintura acrílica.',
+    para_llevar: 'Delantal o ropa vieja.',
+  },
+  {
+    modulo: 'Panadería',
+    nombre: 'Pan de queso',
+    hora: '9:00 a. m.',
+    objetivo: 'Seguir una receta sencilla usando apoyos visuales y trabajo colaborativo.',
+    para_llevar: 'Cabello recogido y recipiente pequeño.',
+  },
+  {
+    modulo: 'Música',
+    nombre: 'Tambor y movimiento',
+    hora: '10:00 a. m.',
+    objetivo: 'Imitar ritmos guiados y coordinación motriz grupal.',
+    para_llevar: 'Calzado cómodo y termo de agua.',
+  },
+  {
+    modulo: 'Artes',
+    nombre: 'Modelado con arcilla',
+    hora: '2:00 p. m.',
+    objetivo: 'Crear figuras geométricas para ejercitar motricidad fina.',
+    para_llevar: 'Trapo limpio y delantal.',
+  },
+  {
+    modulo: 'Panadería',
+    nombre: 'Galletas de avena',
+    hora: '9:00 a. m.',
+    objetivo: 'Medir porciones y amasar con apoyo del tallerista.',
+    para_llevar: 'Recipiente hermético.',
+  },
 ]
 
-const ACTIVIDADES = {
-  musica:    { nombre: 'Ritmo con palmas',   modulo: 'Música',    hora: '10:00 a. m.', objetivo: 'Practicar el pulso lento con el grupo usando palmas y percusión corporal.',          para_llevar: 'Ropa cómoda y ganas de participar.' },
-  artes:     { nombre: 'Mezcla de colores',  modulo: 'Artes',     hora: '2:00 p. m.',  objetivo: 'Explorar combinaciones de colores primarios y secundarios con pintura acrílica.',   para_llevar: 'Delantal o ropa vieja.' },
-  panaderia: { nombre: 'Pan de queso',       modulo: 'Panadería', hora: '9:00 a. m.',  objetivo: 'Seguir una receta sencilla usando apoyos visuales y trabajo colaborativo.',         para_llevar: 'Cabello recogido y recipiente pequeño.' },
+// Genera las próximas 3 actividades a partir de una fecha YYYY-MM-DD
+const generarProximasActividades = (fechaStr) => {
+  const [year, month, day] = fechaStr.split('-').map(Number)
+  const baseDate = new Date(year, month - 1, day)
+
+  const diasOffset = [0, 3, 7]
+  return diasOffset.map((offset, idx) => {
+    const actDate = new Date(baseDate)
+    actDate.setDate(baseDate.getDate() + offset)
+
+    const diaNum = actDate.getDate()
+    const mesAbr = MESES_ABR[actDate.getMonth()]
+    const template = ACTIVIDADES_BASE[(actDate.getDay() + idx) % ACTIVIDADES_BASE.length]
+
+    return {
+      id: `act-${offset}-${diaNum}`,
+      dia: diaNum,
+      mes: mesAbr,
+      modulo: template.modulo,
+      nombre: template.nombre,
+      hora: template.hora,
+      objetivo: template.objetivo,
+      para_llevar: template.para_llevar,
+      fechaFull: actDate.toISOString().split('T')[0],
+    }
+  })
 }
+
+/* ─── Data Estática Asistencia ───────────────────────────────────────────── */
 
 const ASISTENCIA = [
   { dia: 3,  estado: 'vino'  },
@@ -65,12 +168,28 @@ const SEGUIMIENTO = [
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const AcudienteHome = () => {
-  const navigate                    = useNavigate()
-  const [fechaActiva, setFechaActiva] = useState('panaderia')
-  const [confirmado,  setConfirmado]  = useState(false)
+  const navigate = useNavigate()
 
-  const act           = ACTIVIDADES[fechaActiva]
+  // Estado de fecha seleccionada en Colombia
+  const [fechaSeleccionada, setFechaSeleccionada] = useState('2024-10-14')
+  const [mostrarCalendario, setMostrarCalendario] = useState(false)
+  const [horaColombia, setHoraColombia] = useState(getColombiaCurrentTime())
+
+  // Actividades calculadas a partir de la fecha seleccionada
+  const actividadesList = generarProximasActividades(fechaSeleccionada)
+  const [actividadIndex, setActividadIndex] = useState(0)
+  const [confirmado, setConfirmado] = useState(false)
+
+  const actActual = actividadesList[actividadIndex] || actividadesList[0]
   const asistenciaMap = Object.fromEntries(ASISTENCIA.map(a => [a.dia, a.estado]))
+
+  const handleSeleccionarFecha = (nuevaFecha) => {
+    setFechaSeleccionada(nuevaFecha)
+    setActividadIndex(0)
+    setConfirmado(false)
+    setHoraColombia(getColombiaCurrentTime())
+    setMostrarCalendario(false)
+  }
 
   return (
     <div className="acu-page">
@@ -84,25 +203,96 @@ const AcudienteHome = () => {
             <p className="acu-modulos">Música, Artes y Panadería</p>
           </div>
         </div>
-        <button className="acu-cal-btn" aria-label="Ver calendario">
-          <CalendarIcon />
-        </button>
+
+        {/* Botón y Popover del Calendario */}
+        <div className="acu-cal-wrap">
+          <button
+            className={`acu-cal-btn${mostrarCalendario ? ' acu-cal-btn--activo' : ''}`}
+            onClick={() => {
+              setHoraColombia(getColombiaCurrentTime())
+              setMostrarCalendario(v => !v)
+            }}
+            aria-label="Abrir calendario y seleccionar fecha"
+            title="Seleccionar fecha (Zona horaria Colombia)"
+            aria-expanded={mostrarCalendario}
+          >
+            <CalendarIcon />
+          </button>
+
+          {mostrarCalendario && (
+            <div className="acu-cal-popover" role="dialog" aria-modal="true" aria-label="Selector de fecha">
+              <div className="acu-cal-popover__head">
+                <div className="acu-cal-popover__tz">
+                  <span className="acu-cal-popover__bandera" aria-hidden="true">🇨🇴</span>
+                  <div>
+                    <p className="acu-cal-popover__tz-title">Hora Colombia (UTC-5)</p>
+                    <p className="acu-cal-popover__tz-time">{horaColombia}</p>
+                  </div>
+                </div>
+                <button
+                  className="acu-cal-popover__close"
+                  onClick={() => setMostrarCalendario(false)}
+                  aria-label="Cerrar selector"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="acu-cal-popover__body">
+                <label className="acu-cal-popover__label" htmlFor="fecha-colombia-input">
+                  Selecciona la fecha que deseas consultar:
+                </label>
+                <input
+                  id="fecha-colombia-input"
+                  type="date"
+                  className="acu-cal-popover__input"
+                  value={fechaSeleccionada}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleSeleccionarFecha(e.target.value)
+                    }
+                  }}
+                />
+
+                <div className="acu-cal-popover__actions">
+                  <button
+                    type="button"
+                    className="acu-cal-popover__btn-today"
+                    onClick={() => handleSeleccionarFecha(getColombiaToday())}
+                  >
+                    Ver hoy
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* ── Próximas actividades — card grande, parte superior ── */}
       <section className="acu-actividades-card" aria-label="Próximas actividades">
 
         <div className="acu-actividades-head">
-          <h2 className="acu-actividades-titulo">Próximas actividades</h2>
-          <p className="acu-actividades-sub">Toca una fecha para ver el detalle.</p>
+          <div className="acu-actividades-title-group">
+            <h2 className="acu-actividades-titulo">Próximas actividades</h2>
+            <p className="acu-actividades-sub">Toca una fecha para ver el detalle.</p>
+          </div>
+
+          {/* Badge de fecha activa en zona horaria Colombia */}
+          <div className="acu-badge-tz" title="Zona horaria Colombia: America/Bogota">
+            <span className="acu-badge-tz__icon" aria-hidden="true">📅</span>
+            <span className="acu-badge-tz__text">
+              Desde el: <strong>{formatFechaLargaColombia(fechaSeleccionada)}</strong>
+            </span>
+          </div>
         </div>
 
         <div className="acu-fechas">
-          {FECHAS.map(f => (
+          {actividadesList.map((f, idx) => (
             <button
               key={f.id}
-              className={`acu-fecha-btn${fechaActiva === f.id ? ' acu-fecha-btn--activo' : ''}`}
-              onClick={() => { setFechaActiva(f.id); setConfirmado(false) }}
+              className={`acu-fecha-btn${actividadIndex === idx ? ' acu-fecha-btn--activo' : ''}`}
+              onClick={() => { setActividadIndex(idx); setConfirmado(false) }}
             >
               <span className="acu-fecha-mes">{f.mes}</span>
               <span className="acu-fecha-dia">{f.dia}</span>
@@ -116,17 +306,17 @@ const AcudienteHome = () => {
           <div className="acu-preview__fila">
             <div className="acu-preview__icono"><LayersIcon /></div>
             <div>
-              <p className="acu-preview__nombre">{act.nombre}</p>
-              <p className="acu-preview__meta">{act.modulo} · {act.hora}</p>
+              <p className="acu-preview__nombre">{actActual.nombre}</p>
+              <p className="acu-preview__meta">{actActual.modulo} · {actActual.hora}</p>
             </div>
           </div>
           <div className="acu-preview__dato">
             <p className="acu-preview__dato-label">OBJETIVO</p>
-            <p className="acu-preview__dato-valor">{act.objetivo}</p>
+            <p className="acu-preview__dato-valor">{actActual.objetivo}</p>
           </div>
           <div className="acu-preview__dato">
             <p className="acu-preview__dato-label">PARA LLEVAR</p>
-            <p className="acu-preview__dato-valor">{act.para_llevar}</p>
+            <p className="acu-preview__dato-valor">{actActual.para_llevar}</p>
           </div>
           <button
             className={`acu-confirmar-btn${confirmado ? ' acu-confirmar-btn--ok' : ''}`}
@@ -182,7 +372,12 @@ const AcudienteHome = () => {
                 <p className="acu-informe-fecha">Firmado el 12 de octubre</p>
               </div>
             </div>
-            <button className="acu-btn-informe">Ver informe</button>
+            <button
+              className="acu-btn-informe"
+              onClick={() => navigate('/acudiente/informe')}
+            >
+              Ver informe
+            </button>
           </section>
 
           <section className="acu-seg-card" aria-label="Notas de profes">

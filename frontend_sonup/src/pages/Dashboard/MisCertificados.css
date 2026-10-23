@@ -1,0 +1,293 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MisCertificados.css — Paleta ASISCO & Formato CLAMP
+═══════════════════════════════════════════════════════════════════ */
+
+.mcert-page {
+  min-height: 100dvh;
+  background: #F0F1EF;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2.5vw, 1.5rem);
+  padding: 0 0 clamp(1.5rem, 4vw, 3rem);
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Nunito', sans-serif;
+  color: #173632;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────── */
+.mcert-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: clamp(0.75rem, 2vw, 1.25rem) clamp(1rem, 4vw, 3rem);
+  background: #F0F1EF;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.mcert-topbar__back,
+.mcert-topbar__sound {
+  background: #E2F2EF;
+  border: none;
+  cursor: pointer;
+  color: #176D65;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(34px, 4.5vw, 40px);
+  height: clamp(34px, 4.5vw, 40px);
+  border-radius: 50%;
+  transition: transform 0.15s, background 0.15s;
+}
+.mcert-topbar__back:hover,
+.mcert-topbar__sound:hover {
+  background: #d4ece7;
+  transform: scale(1.05);
+}
+
+.mcert-topbar__title {
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  font-weight: 800;
+  color: #173632;
+  text-align: center;
+}
+
+/* ── Lista de Certificados (Imagen 4) ────────────────────────────── */
+.mcert-list-section {
+  padding: 0 clamp(1rem, 4vw, 3rem);
+}
+
+.mcert-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+}
+
+.mcert-card {
+  background: #FFFFFF;
+  border: 1.5px solid #DFE5E2;
+  border-radius: clamp(12px, 1.8vw, 16px);
+  padding: clamp(1rem, 2vw, 1.4rem) clamp(1rem, 2.5vw, 1.5rem);
+  display: flex;
+  align-items: center;
+  gap: clamp(0.75rem, 1.8vw, 1.2rem);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  box-shadow: 0 2px 8px rgba(23, 54, 50, 0.05);
+}
+.mcert-card:hover {
+  transform: translateY(-2px);
+  border-color: #176D65;
+  box-shadow: 0 6px 20px rgba(23, 109, 101, 0.12);
+}
+
+.mcert-card__icon {
+  width: clamp(42px, 5.5vw, 50px);
+  height: clamp(42px, 5.5vw, 50px);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mcert-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mcert-card__title {
+  font-size: clamp(0.85rem, 1.3vw, 0.98rem);
+  font-weight: 800;
+  color: #173632;
+  line-height: 1.25;
+}
+
+.mcert-card__sub {
+  font-size: clamp(0.7rem, 1.1vw, 0.82rem);
+  color: #687974;
+  margin-top: 0.2rem;
+}
+
+.mcert-card__chevron {
+  color: #687974;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── Detalle del Certificado / Diploma (Imagen 5) ─────────────────── */
+.mcert-detail {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.85rem, 2vw, 1.25rem);
+  padding: 0 clamp(1rem, 4vw, 3rem);
+}
+
+.mcert-detail__nav {
+  display: flex;
+  align-items: center;
+}
+
+.mcert-detail__back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: clamp(0.82rem, 1.2vw, 0.92rem);
+  font-weight: 700;
+  color: #176D65;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.mcert-detail__back-link:hover {
+  background: #E2F2EF;
+}
+
+/* ── Marco del Diploma ───────────────────────────────────────────── */
+.mcert-diploma {
+  background: #FFFFFF;
+  border-radius: clamp(10px, 1.5vw, 14px);
+  padding: clamp(0.75rem, 1.5vw, 1.25rem);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.mcert-diploma__border {
+  border: clamp(2px, 0.35vw, 3px) double #F49A18;
+  border-radius: 6px;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 3vw, 2.5rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(0.35rem, 0.8vw, 0.6rem);
+}
+
+.mcert-diploma__badge {
+  color: #F49A18;
+  margin-bottom: 0.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mcert-diploma__badge svg {
+  width: clamp(28px, 4vw, 38px);
+  height: clamp(28px, 4vw, 38px);
+}
+
+.mcert-diploma__brand {
+  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: #176D65;
+}
+
+.mcert-diploma__heading {
+  font-size: clamp(0.9rem, 1.8vw, 1.25rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #173632;
+  margin-top: 0.25rem;
+}
+
+.mcert-diploma__intro {
+  font-size: clamp(0.72rem, 1.1vw, 0.85rem);
+  color: #687974;
+  margin-top: 0.25rem;
+}
+
+.mcert-diploma__student {
+  font-family: 'Georgia', serif;
+  font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+  font-style: italic;
+  font-weight: 700;
+  color: #176D65;
+  margin: clamp(0.4rem, 1vw, 0.8rem) 0;
+}
+
+.mcert-diploma__text {
+  font-size: clamp(0.72rem, 1.1vw, 0.85rem);
+  color: #4b5a56;
+  max-width: 650px;
+  line-height: 1.5;
+}
+
+.mcert-diploma__date {
+  font-size: clamp(0.68rem, 1vw, 0.78rem);
+  color: #8b9995;
+  margin-top: clamp(0.6rem, 1.5vw, 1rem);
+}
+
+/* ── Botón Descargar PDF ─────────────────────────────────────────── */
+.mcert-download-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  background: #176D65;
+  color: #FFFFFF;
+  border: none;
+  border-radius: clamp(10px, 1.5vw, 14px);
+  padding: clamp(0.8rem, 1.6vw, 1.05rem) clamp(1rem, 3vw, 2rem);
+  font-family: inherit;
+  font-size: clamp(0.85rem, 1.3vw, 1rem);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+  box-shadow: 0 4px 14px rgba(23, 109, 101, 0.25);
+}
+.mcert-download-btn:hover {
+  background: #10574F;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(23, 109, 101, 0.35);
+}
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+.mcert-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  padding: clamp(0.5rem, 2vw, 1rem) clamp(1rem, 4vw, 3rem) 0;
+}
+
+.mcert-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #FFFFFF;
+  border: 1.5px solid #DFE5E2;
+  border-radius: 12px;
+  padding: clamp(0.6rem, 1.3vw, 0.75rem) clamp(2.5rem, 6vw, 4.5rem);
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  font-weight: 700;
+  font-family: inherit;
+  color: #176D65;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.mcert-logout:hover {
+  border-color: #176D65;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(23,109,101,.12);
+}
+
+/* ── Responsivo ──────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .mcert-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -243,17 +243,19 @@
   background: #FFFFFF;
   border: 1.5px solid #DFE5E2;
   border-radius: 12px;
-  padding: 0.75rem 2.5rem;
-  font-size: clamp(0.82rem, 1.2vw, 0.92rem);
+  padding: clamp(0.6rem, 1.3vw, 0.75rem) clamp(2.5rem, 6vw, 4.5rem);
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
   font-weight: 700;
   font-family: inherit;
-  color: #173632;
+  color: #176D65;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 .joven-logout:hover {
   border-color: #176D65;
-  color: #176D65;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(23,109,101,.12);
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */

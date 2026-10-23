@@ -1,0 +1,228 @@
+/* ═══════════════════════════════════════════════════════════════════
+   AcudienteInforme.css — Paleta ASISCO & Formato CLAMP
+═══════════════════════════════════════════════════════════════════ */
+
+.ai-page {
+  min-height: 100dvh;
+  background: #F0F1EF;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2.5vw, 1.75rem);
+  padding: clamp(1rem, 2.5vw, 2rem) clamp(1rem, 4vw, 3.5rem);
+  max-width: 1080px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Nunito', sans-serif;
+  color: #173632;
+}
+
+/* ── Perfil Superior ─────────────────────────────────────────────── */
+.ai-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-header__perfil {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.6rem, 1.5vw, 0.9rem);
+}
+
+.ai-avatar {
+  width: clamp(38px, 5vw, 44px);
+  height: clamp(38px, 5vw, 44px);
+  border-radius: 12px;
+  background: #E2F2EF;
+  color: #176D65;
+  font-weight: 800;
+  font-size: clamp(0.85rem, 1.2vw, 1rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ai-nombre {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  font-weight: 800;
+  color: #173632;
+  line-height: 1.2;
+}
+
+.ai-modulos {
+  font-size: clamp(0.72rem, 1.1vw, 0.82rem);
+  color: #687974;
+  margin-top: 0.15rem;
+}
+
+/* ── Tarjeta Central ─────────────────────────────────────────────── */
+.ai-card-wrap {
+  width: 100%;
+}
+
+.ai-card {
+  background: #FFFFFF;
+  border: 1.5px solid #DFE5E2;
+  border-radius: clamp(14px, 2.5vw, 22px);
+  padding: clamp(1.25rem, 3.5vw, 2.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2vw, 1.5rem);
+  box-shadow: 0 4px 20px rgba(23, 54, 50, 0.06);
+}
+
+/* ── Botón Volver ────────────────────────────────────────────────── */
+.ai-volver {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  color: #176D65;
+  font-size: clamp(0.82rem, 1.2vw, 0.92rem);
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.ai-volver:hover {
+  background: #E2F2EF;
+  transform: translateX(-2px);
+}
+
+/* ── Banner Asisco ───────────────────────────────────────────────── */
+.ai-banner {
+  background: #F4F6F5;
+  border-radius: clamp(10px, 1.8vw, 16px);
+  padding: clamp(2rem, 5.5vw, 4rem) clamp(1rem, 3vw, 2.5rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 1px solid #E8ECEB;
+}
+
+.ai-banner__logo {
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(3.5rem, 11vw, 7.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+}
+
+.ai-banner__orange {
+  color: #F49A18;
+}
+
+.ai-banner__teal {
+  color: #2D8B7E;
+}
+
+.ai-banner__sub {
+  font-size: clamp(0.85rem, 2.2vw, 1.65rem);
+  font-weight: 400;
+  color: #4A5854;
+  letter-spacing: 0.02em;
+  margin-top: clamp(0.5rem, 1.5vw, 1rem);
+  text-align: center;
+}
+
+/* ── Contenido ───────────────────────────────────────────────────── */
+.ai-content {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.6rem, 1.2vw, 0.85rem);
+}
+
+.ai-titulo {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  font-weight: 800;
+  color: #173632;
+  line-height: 1.25;
+}
+
+.ai-parrafo {
+  font-size: clamp(0.82rem, 1.3vw, 0.95rem);
+  color: #4B5A56;
+  line-height: 1.55;
+}
+
+.ai-subtitulo {
+  font-size: clamp(0.88rem, 1.4vw, 1.05rem);
+  font-weight: 800;
+  color: #173632;
+  margin-top: clamp(0.35rem, 0.8vw, 0.6rem);
+}
+
+.ai-recomendacion {
+  font-size: clamp(0.82rem, 1.3vw, 0.95rem);
+  color: #4B5A56;
+  line-height: 1.55;
+}
+
+/* ── Botón Descargar PDF ─────────────────────────────────────────── */
+.ai-descargar-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  background: #176D65;
+  color: #FFFFFF;
+  border: none;
+  border-radius: clamp(8px, 1.2vw, 12px);
+  padding: clamp(0.8rem, 1.6vw, 1.05rem) clamp(1rem, 3vw, 2rem);
+  font-family: inherit;
+  font-size: clamp(0.85rem, 1.3vw, 1rem);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+  box-shadow: 0 4px 14px rgba(23, 109, 101, 0.25);
+  margin-top: clamp(0.35rem, 0.8vw, 0.5rem);
+}
+
+.ai-descargar-btn:hover {
+  background: #10574F;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(23, 109, 101, 0.35);
+}
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+.ai-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  padding: clamp(0.5rem, 2vw, 1rem) 0 0;
+}
+
+.ai-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #FFFFFF;
+  border: 1.5px solid #DFE5E2;
+  border-radius: 12px;
+  padding: clamp(0.6rem, 1.3vw, 0.75rem) clamp(2.5rem, 6vw, 4.5rem);
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  font-weight: 700;
+  font-family: inherit;
+  color: #176D65;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+
+.ai-logout:hover {
+  border-color: #176D65;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(23,109,101,.12);
+}

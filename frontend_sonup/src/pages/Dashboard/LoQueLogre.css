@@ -1,0 +1,218 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LoQueLogre.css — Paleta ASISCO
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── Página ──────────────────────────────────────────────────────── */
+.ll-page {
+  min-height: 100dvh;
+  background: #F0F1EF;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.85rem, 2vw, 1.4rem);
+  padding: 0 0 clamp(1.5rem, 4vw, 3rem);
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Nunito', sans-serif;
+  color: #173632;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────── */
+.ll-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: clamp(0.75rem, 2vw, 1.25rem) clamp(1rem, 4vw, 3rem);
+  background: #F0F1EF;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.ll-topbar__back,
+.ll-topbar__sound {
+  background: #E2F2EF;
+  border: none;
+  cursor: pointer;
+  color: #176D65;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(34px, 4.5vw, 40px);
+  height: clamp(34px, 4.5vw, 40px);
+  border-radius: 50%;
+  transition: transform 0.15s, background 0.15s;
+}
+.ll-topbar__back:hover,
+.ll-topbar__sound:hover {
+  background: #d4ece7;
+  transform: scale(1.05);
+}
+
+.ll-topbar__title {
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  font-weight: 800;
+  color: #173632;
+  text-align: center;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────── */
+.ll-tabs {
+  display: flex;
+  background: #FFFFFF;
+  border: 1.5px solid #DFE5E2;
+  border-radius: 12px;
+  padding: 4px;
+  margin: 0 clamp(1rem, 4vw, 3rem);
+  overflow-x: auto;
+  gap: 4px;
+  scrollbar-width: none;
+}
+.ll-tabs::-webkit-scrollbar { display: none; }
+
+.ll-tab {
+  flex: 1;
+  min-width: max-content;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: clamp(0.78rem, 1.4vw, 0.9rem);
+  font-weight: 700;
+  color: #687974;
+  padding: clamp(0.55rem, 1.2vw, 0.75rem) clamp(0.75rem, 2vw, 1.25rem);
+  border-radius: 9px;
+  transition: background 0.18s, color 0.18s;
+  white-space: nowrap;
+}
+.ll-tab:hover:not(.ll-tab--active) {
+  background: #E2F2EF;
+  color: #176D65;
+}
+.ll-tab--active {
+  background: #176D65;
+  color: #FFFFFF;
+}
+
+/* ── Contenido ───────────────────────────────────────────────────── */
+.ll-content {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.85rem, 2vw, 1.25rem);
+  padding: 0 clamp(1rem, 4vw, 3rem);
+}
+
+/* ── Card sección ────────────────────────────────────────────────── */
+.ll-card {
+  background: #FFFFFF;
+  border: 1.5px solid #DFE5E2;
+  border-radius: 16px;
+  padding: clamp(1rem, 2.5vw, 1.5rem) clamp(1.1rem, 3vw, 1.75rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  box-shadow: 0 2px 10px rgba(23,54,50,.05);
+}
+
+.ll-card__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: clamp(0.88rem, 1.5vw, 1rem);
+  font-weight: 700;
+  color: #173632;
+}
+
+.ll-card__title svg {
+  color: #176D65;
+  flex-shrink: 0;
+}
+
+/* ── Listas de ítems ─────────────────────────────────────────────── */
+.ll-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.45rem, 1vw, 0.65rem);
+}
+
+.ll-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border-radius: 10px;
+  padding: clamp(0.55rem, 1.2vw, 0.75rem) clamp(0.85rem, 2vw, 1.1rem);
+  font-size: clamp(0.82rem, 1.4vw, 0.93rem);
+  font-weight: 600;
+  line-height: 1.3;
+  transition: filter 0.15s;
+}
+.ll-item:hover {
+  filter: brightness(0.97);
+}
+
+/* Logrado — fondo teal claro */
+.ll-item--logrado {
+  background: #E2F2EF;
+  color: #10574F;
+}
+.ll-item--logrado svg {
+  color: #176D65;
+  flex-shrink: 0;
+}
+
+/* Aprendiendo — fondo naranja claro */
+.ll-item--aprendiendo {
+  background: #FFF0D8;
+  color: #8B5E0A;
+}
+.ll-item--aprendiendo svg {
+  color: #F49A18;
+  flex-shrink: 0;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+.ll-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  padding: clamp(0.5rem, 2vw, 1rem) clamp(1rem, 4vw, 3rem) 0;
+}
+
+.ll-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #FFFFFF;
+  border: 1.5px solid #DFE5E2;
+  border-radius: 12px;
+  padding: clamp(0.6rem, 1.3vw, 0.75rem) clamp(2.5rem, 6vw, 4.5rem);
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  font-weight: 700;
+  font-family: inherit;
+  color: #176D65;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.ll-logout:hover {
+  border-color: #176D65;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(23,109,101,.12);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .ll-tabs {
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .ll-tab {
+    padding: 0.55rem 0.75rem;
+    font-size: 0.78rem;
+  }
+}

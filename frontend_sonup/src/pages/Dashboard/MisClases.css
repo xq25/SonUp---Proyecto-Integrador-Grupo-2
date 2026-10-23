@@ -1,0 +1,278 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MisClases.css — Paleta ASISCO
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── Página ──────────────────────────────────────────────────────── */
+.mc-page {
+  min-height: 100dvh;
+  background: #F0F1EF;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2.5vw, 1.75rem);
+  padding: 0 0 clamp(1.5rem, 4vw, 3rem);
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Nunito', sans-serif;
+  color: #173632;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────── */
+.mc-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: clamp(0.75rem, 2vw, 1.25rem) clamp(1rem, 4vw, 3rem);
+  background: #F0F1EF;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.mc-topbar__back,
+.mc-topbar__sound {
+  background: #E2F2EF;
+  border: none;
+  cursor: pointer;
+  color: #176D65;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(34px, 4.5vw, 40px);
+  height: clamp(34px, 4.5vw, 40px);
+  border-radius: 50%;
+  transition: transform 0.15s, background 0.15s;
+}
+.mc-topbar__back:hover,
+.mc-topbar__sound:hover {
+  background: #d4ece7;
+  transform: scale(1.05);
+}
+
+.mc-topbar__title {
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  font-weight: 800;
+  color: #173632;
+  text-align: center;
+}
+
+/* ── Hero ────────────────────────────────────────────────────────── */
+.mc-hero {
+  position: relative;
+  overflow: hidden;
+  margin: 0 clamp(1rem, 4vw, 3rem);
+  background: #176D65;
+  border-radius: clamp(14px, 2vw, 18px);
+  padding: clamp(1.2rem, 2.5vw, 1.6rem) clamp(1.25rem, 3vw, 2rem);
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 2.5vw, 1.5rem);
+  box-shadow: 0 4px 20px rgba(23,109,101,.22);
+}
+
+.mc-hero__icon-wrap {
+  width: clamp(48px, 6.5vw, 58px);
+  height: clamp(48px, 6.5vw, 58px);
+  border-radius: 12px;
+  background: #FFFFFF;
+  color: #176D65;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mc-hero__content {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.15rem, 0.4vw, 0.3rem);
+  z-index: 1;
+}
+
+.mc-hero__tag {
+  font-size: clamp(0.6rem, 0.9vw, 0.68rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #E2F2EF;
+}
+
+.mc-hero__title {
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 800;
+  color: #FFFFFF;
+  line-height: 1.15;
+}
+
+.mc-hero__sub {
+  font-size: clamp(0.78rem, 1.2vw, 0.9rem);
+  color: rgba(255,255,255,.85);
+}
+
+.mc-hero__deco {
+  position: absolute;
+  right: -50px;
+  top: -50px;
+  width: clamp(160px, 22vw, 220px);
+  height: clamp(160px, 22vw, 220px);
+  border-radius: 50%;
+  background: rgba(255,255,255,.05);
+  pointer-events: none;
+}
+
+/* ── Sección lista ───────────────────────────────────────────────── */
+.mc-section {
+  padding: 0 clamp(1rem, 4vw, 3rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.mc-section__month {
+  font-size: clamp(0.9rem, 1.5vw, 1.05rem);
+  font-weight: 700;
+  color: #173632;
+}
+
+/* ── Grid 2 columnas ─────────────────────────────────────────────── */
+.mc-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(0.65rem, 1.5vw, 1rem);
+}
+
+/* ── Tarjeta clase ───────────────────────────────────────────────── */
+.mc-clase-card {
+  background: #FFFFFF;
+  border: 1.5px solid #DFE5E2;
+  border-radius: 14px;
+  padding: clamp(0.85rem, 2vw, 1.15rem) clamp(1rem, 2.5vw, 1.4rem);
+  display: flex;
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 1.1rem);
+  transition: box-shadow 0.18s, transform 0.15s;
+  cursor: default;
+}
+.mc-clase-card:hover {
+  box-shadow: 0 4px 16px rgba(23,54,50,.1);
+  transform: translateY(-1px);
+}
+
+/* ── Fecha ───────────────────────────────────────────────────────── */
+.mc-clase-card__fecha {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #FFF0D8;
+  border-radius: 10px;
+  padding: clamp(0.35rem, 1vw, 0.55rem) clamp(0.5rem, 1.2vw, 0.75rem);
+  min-width: clamp(36px, 6vw, 50px);
+  flex-shrink: 0;
+}
+
+.mc-clase-card__dia {
+  font-size: clamp(1rem, 2vw, 1.3rem);
+  font-weight: 900;
+  color: #F49A18;
+  line-height: 1.1;
+}
+
+.mc-clase-card__mes {
+  font-size: clamp(0.55rem, 0.9vw, 0.65rem);
+  font-weight: 700;
+  color: #F49A18;
+  letter-spacing: 0.05em;
+}
+
+/* ── Info clase ──────────────────────────────────────────────────── */
+.mc-clase-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mc-clase-card__materia {
+  font-size: clamp(0.85rem, 1.5vw, 0.98rem);
+  font-weight: 800;
+  color: #173632;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mc-clase-card__tema {
+  font-size: clamp(0.72rem, 1.1vw, 0.82rem);
+  color: #687974;
+  margin-top: 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Estado ──────────────────────────────────────────────────────── */
+.mc-clase-card__estado {
+  width: clamp(22px, 3.5vw, 28px);
+  height: clamp(22px, 3.5vw, 28px);
+  border-radius: 50%;
+  border: 2px solid #DFE5E2;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mc-clase-card__estado--done {
+  background: #176D65;
+  border-color: #176D65;
+  color: #FFFFFF;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+.mc-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  padding: clamp(0.5rem, 2vw, 1rem) clamp(1rem, 4vw, 3rem) 0;
+}
+
+.mc-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #FFFFFF;
+  border: 1.5px solid #DFE5E2;
+  border-radius: 12px;
+  padding: clamp(0.6rem, 1.3vw, 0.75rem) clamp(2.5rem, 6vw, 4.5rem);
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  font-weight: 700;
+  font-family: inherit;
+  color: #176D65;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.mc-logout:hover {
+  border-color: #176D65;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(23,109,101,.12);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 540px) {
+  .mc-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mc-hero__deco {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .mc-clase-card__fecha {
+    min-width: 32px;
+  }
+}

@@ -69,24 +69,28 @@ const MODULOS = [
     label:    'Lo que logré',
     icon:     <StarIcon />,
     variante: 'accent',
+    ruta:     '/joven/lo-que-logre',
   },
   {
     id:       'videos',
     label:    'Mis videos',
     icon:     <VideoIcon />,
     variante: 'default',
+    ruta:     '/joven/mis-videos',
   },
   {
     id:       'certificados',
     label:    'Mis certificados',
     icon:     <MedalIcon />,
     variante: 'default',
+    ruta:     '/joven/mis-certificados',
   },
   {
     id:       'clases',
     label:    'Mis clases',
     icon:     <CalendarIcon />,
     variante: 'default',
+    ruta:     '/joven/mis-clases',
   },
 ]
 
@@ -115,7 +119,11 @@ const Dashboard = () => {
       </div>
 
       {/* Música — hero card ancha */}
-      <button className="joven-musica-card" aria-label="Ir a Música">
+      <button
+        className="joven-musica-card"
+        aria-label="Ir a Música"
+        onClick={() => navigate('/joven/mis-clases')}
+      >
         <div className="joven-musica-card__icono"><MusicIcon /></div>
         <div className="joven-musica-card__content">
           <p className="joven-musica-card__tag">MI PRÓXIMA CLASE</p>
@@ -132,6 +140,7 @@ const Dashboard = () => {
             key={m.id}
             className={`joven-modulo joven-modulo--${m.variante}`}
             role="listitem"
+            onClick={() => m.ruta && navigate(m.ruta)}
           >
             <div className="joven-modulo__icono">{m.icon}</div>
             <p className="joven-modulo__label">{m.label}</p>
