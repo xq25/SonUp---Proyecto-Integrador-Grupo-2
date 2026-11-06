@@ -37,8 +37,9 @@ const App = () => (
       {/* Rutas del Tallerista — comparten sidebar */}
       <Route element={<TalleristaLayout />}>
         <Route path="/tallerista/inicio"       element={<TalleristaHome />} />
-        <Route path="/tallerista/participante" element={<ParticipantePerfil />} />
-        <Route path="/tallerista/informes"     element={<Informes />} />
+        <Route path="/tallerista/participante/:childId" element={<ParticipantePerfil />} />
+        <Route path="/tallerista/informes"           element={<Informes />} />
+        <Route path="/tallerista/informes/:childId" element={<Informes />} />
         <Route path="/tallerista/talleres"     element={<Talleres />} />
         <Route path="/tallerista/habilidades"   element={<Habilidades />} />
         <Route path="/tallerista/certificados" element={<Certificados />} />

@@ -456,6 +456,55 @@
 .btn-guardar-evid:hover:not(:disabled) { background: var(--color-primary-dark); }
 .btn-guardar-evid:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* ── Student picker ──────────────────────────────────────────────────────── */
+
+.evid-hint-count {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.evid-student-list {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: var(--color-bg);
+}
+
+.evid-student-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--fs-sm);
+  color: var(--color-text-dark);
+  cursor: pointer;
+  padding: 0.2rem 0;
+}
+.evid-student-item input[type='checkbox'] {
+  accent-color: var(--color-primary);
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.evid-hint {
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  padding: 0.5rem 0;
+}
+
+.evid-error {
+  font-size: var(--fs-sm);
+  color: #d32f2f;
+  background: #fdecea;
+  border-radius: 7px;
+  padding: 0.5rem 0.85rem;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {

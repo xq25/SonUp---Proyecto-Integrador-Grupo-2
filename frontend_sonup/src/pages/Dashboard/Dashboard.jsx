@@ -1,5 +1,10 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Logo from '../../components/Logo/Logo'
+import { getChild } from '../../services/children.js'
+import { getStudentAttendances } from '../../services/attendances.js'
+import { getStudentCategoryAverages } from '../../services/skills.js'
+import { getWorkshops } from '../../services/workshops.js'
 import './Dashboard.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -61,45 +66,68 @@ const ChevronLeftIcon = () => (
   </svg>
 )
 
-/* ─── Data ───────────────────────────────────────────────────────────────── */
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
 
-const MODULOS = [
-  {
-    id:       'logros',
-    label:    'Lo que logré',
-    icon:     <StarIcon />,
-    variante: 'accent',
-    ruta:     '/joven/lo-que-logre',
-  },
-  {
-    id:       'videos',
-    label:    'Mis videos',
-    icon:     <VideoIcon />,
-    variante: 'default',
-    ruta:     '/joven/mis-videos',
-  },
-  {
-    id:       'certificados',
-    label:    'Mis certificados',
-    icon:     <MedalIcon />,
-    variante: 'default',
-    ruta:     '/joven/mis-certificados',
-  },
-  {
-    id:       'clases',
-    label:    'Mis clases',
-    icon:     <CalendarIcon />,
-    variante: 'default',
-    ruta:     '/joven/mis-clases',
-  },
-]
-
-const LOGROS = 7
+const MAX_ESTRELLAS = 10
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const Dashboard = () => {
   const navigate = useNavigate()
+
+  const [niño,         setNiño]         = useState(null)
+  const [proximaClase, setProximaClase] = useState(null)
+  const [logros,       setLogros]       = useState(0)
+  const [tallereNombre, setTallerNombre] = useState('')
+  const [cargando,     setCargando]     = useState(true)
+
+  useEffect(() => {
+    const studentId = import.meta.env.VITE_STUDENT_ID || '1'
+    const load = async () => {
+      try {
+        const [childRes, asistRes, catRes, wsRes] = await Promise.allSettled([
+          getChild(studentId),
+          getStudentAttendances(studentId),
+          getStudentCategoryAverages(studentId),
+          getWorkshops({}),
+        ])
+
+        if (childRes.status === 'fulfilled') setNiño(childRes.value)
+
+        const totalSkills = catRes.status === 'fulfilled'
+          ? catRes.value.reduce((s, c) => s + c.skillCount, 0)
+          : 0
+        setLogros(totalSkills)
+
+        const attendedIds = new Set(
+          asistRes.status === 'fulfilled'
+            ? asistRes.value.map(a => String(a.workshopId))
+            : []
+        )
+        const allWs = wsRes.status === 'fulfilled' ? wsRes.value : []
+        const activo = allWs.find(w => w.status === 'active' && attendedIds.has(String(w.id)))
+        const cualquiera = activo ?? allWs.find(w => attendedIds.has(String(w.id))) ?? null
+        setProximaClase(cualquiera)
+        setTallerNombre(cualquiera?.name ?? '')
+
+      } catch {}
+      finally { setCargando(false) }
+    }
+    load()
+  }, [])
+
+  const nombre = niño
+    ? (niño.firstName || [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Joven')
+    : 'Joven'
+
+  const estrellasCount = Math.min(logros, MAX_ESTRELLAS)
+
+  const MODULOS = [
+    { id: 'logros',       label: 'Lo que logré',    icon: <StarIcon />,     variante: 'accent',   ruta: '/joven/lo-que-logre'    },
+    { id: 'videos',       label: 'Mis videos',       icon: <VideoIcon />,    variante: 'default',  ruta: '/joven/mis-videos'       },
+    { id: 'certificados', label: 'Mis certificados', icon: <MedalIcon />,    variante: 'default',  ruta: '/joven/mis-certificados' },
+    { id: 'clases',       label: 'Mis clases',       icon: <CalendarIcon />, variante: 'default',  ruta: '/joven/mis-clases'       },
+  ]
 
   return (
     <div className="joven-page">
@@ -114,24 +142,32 @@ const Dashboard = () => {
 
       {/* Saludo */}
       <div className="joven-saludo">
-        <h1 className="joven-saludo__titulo">¡Hola, Mariana!</h1>
+        <h1 className="joven-saludo__titulo">¡Hola, {nombre}!</h1>
         <p className="joven-saludo__sub">¿Qué quieres ver hoy?</p>
       </div>
 
-      {/* Música — hero card ancha */}
-      <button
-        className="joven-musica-card"
-        aria-label="Ir a Música"
-        onClick={() => navigate('/joven/mis-clases')}
-      >
-        <div className="joven-musica-card__icono"><MusicIcon /></div>
-        <div className="joven-musica-card__content">
-          <p className="joven-musica-card__tag">MI PRÓXIMA CLASE</p>
-          <p className="joven-musica-card__titulo">Música</p>
-          <p className="joven-musica-card__sub">Sábado · 10:00 de la mañana</p>
-        </div>
-        <span className="joven-musica-card__deco" aria-hidden="true" />
-      </button>
+      {/* Hero — próxima clase */}
+      {!cargando && (
+        <button
+          className="joven-musica-card"
+          aria-label={proximaClase ? `Ir a ${proximaClase.name}` : 'Mis clases'}
+          onClick={() => navigate('/joven/mis-clases')}
+        >
+          <div className="joven-musica-card__icono"><MusicIcon /></div>
+          <div className="joven-musica-card__content">
+            <p className="joven-musica-card__tag">MI PRÓXIMA CLASE</p>
+            <p className="joven-musica-card__titulo">
+              {proximaClase ? proximaClase.name : 'Ver mis clases'}
+            </p>
+            {proximaClase?.startsAt && (
+              <p className="joven-musica-card__sub">
+                Desde {new Date(proximaClase.startsAt).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}
+              </p>
+            )}
+          </div>
+          <span className="joven-musica-card__deco" aria-hidden="true" />
+        </button>
+      )}
 
       {/* Los 4 módulos en grid */}
       <div className="joven-modulos" role="list">
@@ -149,17 +185,21 @@ const Dashboard = () => {
       </div>
 
       {/* Card de logros */}
-      <div className="joven-logros-card">
-        <div className="joven-logros-card__info">
-          <h2 className="joven-logros-card__titulo">En Música este semestre</h2>
-          <p className="joven-logros-card__sub">{LOGROS} cosas que ya lograste</p>
+      {!cargando && logros > 0 && (
+        <div className="joven-logros-card">
+          <div className="joven-logros-card__info">
+            <h2 className="joven-logros-card__titulo">
+              {tallereNombre ? `En ${tallereNombre} este semestre` : 'Este semestre'}
+            </h2>
+            <p className="joven-logros-card__sub">{logros} cosas que ya lograste</p>
+          </div>
+          <div className="joven-estrellas" aria-label={`${estrellasCount} estrellas`}>
+            {Array.from({ length: estrellasCount }).map((_, i) => (
+              <StarFillIcon key={i} />
+            ))}
+          </div>
         </div>
-        <div className="joven-estrellas" aria-label={`${LOGROS} estrellas`}>
-          {Array.from({ length: LOGROS }).map((_, i) => (
-            <StarFillIcon key={i} />
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Pie */}
       <footer className="joven-footer">

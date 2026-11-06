@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getStudentCategoryAverages, getStudentSkills } from '../../services/skills.js'
+import { getSkills } from '../../services/skills.js'
+import { getEvaluationScales } from '../../services/evaluations.js'
 import './LoQueLogre.css'
 
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
@@ -45,68 +48,87 @@ const CheckSmIcon = () => (
   </svg>
 )
 
-/* ─── Data ───────────────────────────────────────────────────────────────── */
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
 
-const TALLERES = [
-  {
-    id: 'musica',
-    label: 'Música',
-    logrados: [
-      'Respondo cuando me llaman',
-      'Reconozco los instrumentos',
-      'Hago ritmo con el grupo',
-    ],
-    aprendiendo: [
-      'Seguir el ritmo rápido',
-      'Imitar los movimientos del profe',
-    ],
-  },
-  {
-    id: 'artes',
-    label: 'Artes',
-    logrados: [
-      'Mezclo colores primarios',
-      'Pinto dentro del contorno',
-    ],
-    aprendiendo: [
-      'Usar pincel fino',
-      'Crear texturas con esponja',
-      'Dibujar figuras geométricas',
-    ],
-  },
-  {
-    id: 'panaderia',
-    label: 'Panadería',
-    logrados: [
-      'Mezclo los ingredientes',
-      'Amaso con las manos',
-      'Reconozco los utensilios',
-      'Sigo instrucciones del profe',
-    ],
-    aprendiendo: [
-      'Dar forma al pan',
-    ],
-  },
-]
+/* numValue >= 3.5 → logrado (escala ALTO o SUPERIOR del seed) */
+const esLogrado = (numValue) => numValue >= 3.5
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const LoQueLogre = () => {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('musica')
+  const [categorias,     setCategorias]     = useState([])
+  const [studentSkills,  setStudentSkills]  = useState([])  // { skillId, evaluationScaleId }
+  const [allSkills,      setAllSkills]      = useState([])  // { id, name, skillCategoryId }
+  const [scaleMap,       setScaleMap]       = useState({})  // scaleId → numValue
+  const [cargando,       setCargando]       = useState(true)
+  const [activeTab,      setActiveTab]      = useState('')
 
-  const taller = TALLERES.find(t => t.id === activeTab)
+  useEffect(() => {
+    const studentId = import.meta.env.VITE_STUDENT_ID || '1'
+    const load = async () => {
+      try {
+        const [catRes, skillsStudentRes, allSkillsRes, scalesRes] = await Promise.allSettled([
+          getStudentCategoryAverages(studentId),
+          getStudentSkills(studentId),
+          getSkills(),
+          getEvaluationScales(),
+        ])
+
+        const cats = catRes.status === 'fulfilled' ? catRes.value : []
+        setCategorias(cats)
+        if (cats.length > 0) setActiveTab(String(cats[0].skillCategoryId))
+
+        setStudentSkills(skillsStudentRes.status === 'fulfilled' ? skillsStudentRes.value : [])
+        setAllSkills(allSkillsRes.status === 'fulfilled' ? allSkillsRes.value : [])
+
+        /* scaleId → numValue */
+        const smap = {}
+        if (scalesRes.status === 'fulfilled') {
+          scalesRes.value.forEach(s => { smap[String(s.id)] = s.numValue })
+        }
+        setScaleMap(smap)
+
+      } catch {}
+      finally { setCargando(false) }
+    }
+    load()
+  }, [])
+
+  /*
+   * Cruce de tres fuentes:
+   *   studentSkills: { skillId, evaluationScaleId }
+   *   allSkills:     { id, name, skillCategoryId }
+   *   scaleMap:      { [scaleId]: numValue }
+   *
+   * Resultado: { [catId]: { logrados: string[], aprendiendo: string[] } }
+   */
+  const porCategoria = useMemo(() => {
+    /* id → { name, skillCategoryId } */
+    const skillInfo = {}
+    allSkills.forEach(s => { skillInfo[String(s.id)] = { name: s.name, catId: String(s.skillCategoryId) } })
+
+    const result = {}
+    studentSkills.forEach(ss => {
+      const info     = skillInfo[String(ss.skillId)]
+      if (!info) return
+      const numValue = scaleMap[String(ss.evaluationScaleId)] ?? 0
+      if (!result[info.catId]) result[info.catId] = { logrados: [], aprendiendo: [] }
+      if (esLogrado(numValue)) result[info.catId].logrados.push(info.name)
+      else                      result[info.catId].aprendiendo.push(info.name)
+    })
+    return result
+  }, [studentSkills, allSkills, scaleMap])
+
+  const habilidades = porCategoria[activeTab] ?? { logrados: [], aprendiendo: [] }
+  const hayDatos = habilidades.logrados.length > 0 || habilidades.aprendiendo.length > 0
 
   return (
     <div className="ll-page">
 
       {/* Top bar */}
       <header className="ll-topbar">
-        <button
-          className="ll-topbar__back"
-          onClick={() => navigate('/dashboard')}
-          aria-label="Volver al inicio"
-        >
+        <button className="ll-topbar__back" onClick={() => navigate('/dashboard')} aria-label="Volver al inicio">
           <ChevronLeftIcon />
         </button>
         <h1 className="ll-topbar__title">Lo que logré</h1>
@@ -115,64 +137,83 @@ const LoQueLogre = () => {
         </button>
       </header>
 
-      {/* Tabs de talleres */}
-      <nav className="ll-tabs" aria-label="Talleres">
-        {TALLERES.map(t => (
-          <button
-            key={t.id}
-            className={`ll-tab${activeTab === t.id ? ' ll-tab--active' : ''}`}
-            onClick={() => setActiveTab(t.id)}
-            aria-current={activeTab === t.id ? 'true' : undefined}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      {cargando ? (
+        <p style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted, #888)' }}>
+          Cargando logros…
+        </p>
+      ) : categorias.length === 0 ? (
+        <p style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted, #888)' }}>
+          Aún no hay habilidades registradas.
+        </p>
+      ) : (
+        <>
+          {/* Tabs de categorías */}
+          <nav className="ll-tabs" aria-label="Categorías">
+            {categorias.map(c => (
+              <button
+                key={String(c.skillCategoryId)}
+                className={`ll-tab${activeTab === String(c.skillCategoryId) ? ' ll-tab--active' : ''}`}
+                onClick={() => setActiveTab(String(c.skillCategoryId))}
+                aria-current={activeTab === String(c.skillCategoryId) ? 'true' : undefined}
+              >
+                {c.categoryName}
+              </button>
+            ))}
+          </nav>
 
-      {/* Contenido del taller activo */}
-      {taller && (
-        <div className="ll-content">
+          <div className="ll-content">
 
-          {/* Ya lo logré */}
-          <section className="ll-card" aria-labelledby="ll-logrado-title">
-            <h2 className="ll-card__title" id="ll-logrado-title">
-              <StarOutlineIcon /> Ya lo logré
-            </h2>
-            <ul className="ll-items ll-items--logrado" role="list">
-              {taller.logrados.map((item, i) => (
-                <li key={i} className="ll-item ll-item--logrado">
-                  <CheckSmIcon />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </section>
+            {/* Ya lo logré */}
+            <section className="ll-card" aria-labelledby="ll-logrado-title">
+              <h2 className="ll-card__title" id="ll-logrado-title">
+                <StarOutlineIcon /> Ya lo logré
+              </h2>
+              {habilidades.logrados.length === 0 ? (
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted, #888)', padding: '0.5rem 0' }}>
+                  {hayDatos ? 'Sigue practicando, pronto estarán aquí.' : 'Aún no hay habilidades en esta categoría.'}
+                </p>
+              ) : (
+                <ul className="ll-items ll-items--logrado" role="list">
+                  {habilidades.logrados.map((item, i) => (
+                    <li key={i} className="ll-item ll-item--logrado">
+                      <CheckSmIcon />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-          {/* Estoy aprendiendo */}
-          <section className="ll-card" aria-labelledby="ll-aprendiendo-title">
-            <h2 className="ll-card__title" id="ll-aprendiendo-title">
-              <SproutIcon /> Estoy aprendiendo
-            </h2>
-            <ul className="ll-items ll-items--aprendiendo" role="list">
-              {taller.aprendiendo.map((item, i) => (
-                <li key={i} className="ll-item ll-item--aprendiendo">
-                  <BookmarkIcon />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </section>
+            {/* Estoy aprendiendo */}
+            <section className="ll-card" aria-labelledby="ll-aprendiendo-title">
+              <h2 className="ll-card__title" id="ll-aprendiendo-title">
+                <SproutIcon /> Estoy aprendiendo
+              </h2>
+              {habilidades.aprendiendo.length === 0 ? (
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted, #888)', padding: '0.5rem 0' }}>
+                  {habilidades.logrados.length > 0
+                    ? '¡Todo en esta categoría ya está logrado!'
+                    : 'Aún no hay habilidades evaluadas aquí.'}
+                </p>
+              ) : (
+                <ul className="ll-items ll-items--aprendiendo" role="list">
+                  {habilidades.aprendiendo.map((item, i) => (
+                    <li key={i} className="ll-item ll-item--aprendiendo">
+                      <BookmarkIcon />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-        </div>
+          </div>
+        </>
       )}
 
       {/* Footer */}
       <footer className="ll-footer">
-        <button
-          className="ll-logout"
-          onClick={() => navigate('/login')}
-          aria-label="Cerrar sesión"
-        >
+        <button className="ll-logout" onClick={() => navigate('/login')} aria-label="Cerrar sesión">
           <ChevronLeftIcon /> Cerrar sesión
         </button>
       </footer>

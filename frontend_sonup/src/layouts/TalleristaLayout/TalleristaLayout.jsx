@@ -60,7 +60,7 @@ const XIcon = () => (
 
 const NAV_ITEMS = [
   { id: 'inicio',        label: 'Inicio',             icon: <HomeIcon />,          ruta: '/tallerista/inicio',       enabled: true  },
-  { id: 'participantes', label: 'Participantes',       icon: <ParticipantesIcon />, ruta: '/tallerista/participante', enabled: true  },
+  { id: 'participantes', label: 'Participantes',       icon: <ParticipantesIcon />, ruta: '/tallerista/participante/1', enabled: true  },
   { id: 'talleres',      label: 'Talleres y sesiones', icon: <TalleresIcon />,      ruta: '/tallerista/talleres',     enabled: true  },
   { id: 'habilidades',   label: 'Habilidades y juegos',icon: <HabilidadesIcon />,   ruta: '/tallerista/habilidades',  enabled: true  },
   { id: 'informes',      label: 'Informes',            icon: <InformesIcon />,      ruta: '/tallerista/informes',     enabled: true  },

@@ -1,4 +1,10 @@
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getWorkshops }             from '../../services/workshops.js'
+import { getWorkshopAttendances }   from '../../services/attendances.js'
+import { getStudentCategoryAverages } from '../../services/skills.js'
+import { getStudentCredentials }    from '../../services/credentials.js'
+import { getStudentEvidences }      from '../../services/evidences.js'
 import './TalleristaHome.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -50,23 +56,140 @@ function getCurrentDate() {
   return raw.charAt(0).toUpperCase() + raw.slice(1)
 }
 
-/* ─── Static data ────────────────────────────────────────────────────────── */
-
-const SEGUIMIENTO = [
-  { fecha: '10 oct', desc: 'Siguió el ritmo rápido sola por primera vez.',                meta: 'Música · Laura R.'            },
-  { fecha: '3 oct',  desc: 'Participó con mayor autonomía en la actividad grupal.',       meta: 'Música · Equipo pedagógico'   },
-  { fecha: '26 sep', desc: 'Respondió positivamente al uso de la secuencia visual.',      meta: 'Música · Seguimiento'         },
-]
-
-const RECURSOS = [
-  { tipo: 'cert',  titulo: 'Proceso musical',                              meta: 'Certificado · 12 horas',  ruta: '/tallerista/certificados' },
-  { tipo: 'video', titulo: 'Siguió el ritmo rápido sola por primera vez.', meta: 'Video · 10 de octubre',   ruta: '/tallerista/evidencias'   },
-]
+const formatFechaCorta = (iso) =>
+  new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'short' })
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const TalleristaHome = () => {
   const navigate = useNavigate()
+
+  const [talleres,     setTalleres]     = useState([])
+  const [tallerMapa,   setTallerMapa]   = useState({})
+  const [asistencias,  setAsistencias]  = useState([])
+  const [catAverages,  setCatAverages]  = useState([])
+  const [credenciales, setCredenciales] = useState([])
+  const [evidencias,   setEvidencias]   = useState([])
+  const [cargando,     setCargando]     = useState(true)
+
+  useEffect(() => {
+    const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
+    const load = async () => {
+      try {
+        /* 1 — Talleres del evaluador */
+        const ws = await getWorkshops(evaluatorId ? { evaluatorId } : {})
+        setTalleres(ws)
+        const mapa = {}
+        ws.forEach(t => { mapa[String(t.id)] = t.name })
+        setTallerMapa(mapa)
+
+        /* 2 — Asistencias de todos los talleres → set de studentIds */
+        const asistRes = await Promise.allSettled(ws.map(t => getWorkshopAttendances(t.id)))
+        const todasAsist = []
+        const studentIdSet = new Set()
+        asistRes.forEach(r => {
+          if (r.status === 'fulfilled') r.value.forEach(a => {
+            todasAsist.push(a)
+            studentIdSet.add(String(a.studentId))
+          })
+        })
+        setAsistencias(todasAsist)
+
+        /* 3 — Datos por estudiante en paralelo */
+        const ids = [...studentIdSet]
+        const [catRes, credRes, evidRes] = await Promise.all([
+          Promise.allSettled(ids.map(id => getStudentCategoryAverages(id))),
+          Promise.allSettled(ids.map(id => getStudentCredentials(id))),
+          Promise.allSettled(ids.map(id => getStudentEvidences(id))),
+        ])
+
+        const allCats = []
+        catRes.forEach(r => { if (r.status === 'fulfilled') allCats.push(...r.value) })
+        setCatAverages(allCats)
+
+        const credMap = new Map()
+        credRes.forEach(r => { if (r.status === 'fulfilled') r.value.forEach(c => credMap.set(String(c.id), c)) })
+        setCredenciales([...credMap.values()])
+
+        const evidMap = new Map()
+        evidRes.forEach(r => { if (r.status === 'fulfilled') r.value.forEach(e => evidMap.set(String(e.id), e)) })
+        setEvidencias([...evidMap.values()])
+
+      } catch { /* silencioso — datos parciales */ }
+      finally  { setCargando(false) }
+    }
+    load()
+  }, [])
+
+  /* ── Derivados ── */
+
+  const talleresActivos = useMemo(() =>
+    talleres.filter(t => t.status === 'active'), [talleres])
+
+  const primerTaller = talleresActivos[0] ?? null
+
+  const estudiantesPorTaller = useMemo(() => {
+    const m = {}
+    asistencias.forEach(a => {
+      const id = String(a.workshopId)
+      if (!m[id]) m[id] = new Set()
+      m[id].add(String(a.studentId))
+    })
+    return m
+  }, [asistencias])
+
+  const totalEstudiantes = useMemo(() =>
+    new Set(asistencias.map(a => String(a.studentId))).size,
+    [asistencias]
+  )
+
+  const asistMes = useMemo(() => {
+    const now = new Date()
+    return asistencias.filter(a => {
+      const d = new Date(a.attendedAt)
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    })
+  }, [asistencias])
+
+  const groupProgress = useMemo(() => {
+    if (!catAverages.length) return 0
+    const avg = catAverages.reduce((s, c) => s + c.average, 0) / catAverages.length
+    return Math.round((avg / 5) * 100)
+  }, [catAverages])
+
+  const totalSkillsEvaluated = useMemo(() =>
+    catAverages.reduce((s, c) => s + c.skillCount, 0), [catAverages])
+
+  const ultimaSesion = useMemo(() => {
+    if (!asistencias.length) return null
+    return [...asistencias].sort((a, b) => new Date(b.attendedAt) - new Date(a.attendedAt))[0]
+  }, [asistencias])
+
+  const seguimiento = useMemo(() =>
+    [...asistencias]
+      .filter(a => a.observation)
+      .sort((a, b) => new Date(b.attendedAt) - new Date(a.attendedAt))
+      .slice(0, 3)
+      .map(a => ({
+        fecha: formatFechaCorta(a.attendedAt),
+        desc:  a.observation,
+        meta:  tallerMapa[String(a.workshopId)] ?? `Taller ${a.workshopId}`,
+      })),
+    [asistencias, tallerMapa]
+  )
+
+  const recursos = useMemo(() => [
+    ...credenciales.slice(0, 1).map(c => ({
+      tipo: 'cert', titulo: c.organizationName,
+      meta: `Certificado · ${c.createdAt ? formatFechaCorta(c.createdAt) : '—'}`,
+      ruta: '/tallerista/certificados',
+    })),
+    ...evidencias.slice(0, 1).map(e => ({
+      tipo: 'video', titulo: e.title,
+      meta: `Evidencia · ${e.createdAt ? formatFechaCorta(e.createdAt) : '—'}`,
+      ruta: '/tallerista/evidencias',
+    })),
+  ], [credenciales, evidencias])
 
   return (
     <div className="tl-home">
@@ -79,151 +202,195 @@ const TalleristaHome = () => {
         </div>
       </header>
 
-      {/* Hero — próxima clase */}
-      <section className="tl-hero-card" aria-label="Próxima clase">
-        <div className="tl-hero-card__deco" aria-hidden="true">
-          <span className="tl-hero-deco tl-hero-deco--lg" />
-          <span className="tl-hero-deco tl-hero-deco--sm" />
-        </div>
-        <div className="tl-hero-card__content">
-          <p className="tl-hero-card__tag">PRÓXIMA CLASE · 10:00 A. M.</p>
-          <h2 className="tl-hero-card__title">Música con Mariana y su grupo</h2>
-          <p className="tl-hero-card__sub">Ritmo con palmas y tamboor · Salón 3</p>
-        </div>
-        <button
-          className="tl-hero-card__btn"
-          aria-label="Registrar sesión de clase"
-          onClick={() => navigate('/tallerista/talleres')}
-        >
-          Registrar sesión
-        </button>
-      </section>
-
-      {/* Stats */}
-      <div className="tl-stats-grid" role="region" aria-label="Estadísticas del mes">
-        <div className="tl-stat-card">
-          <p className="tl-stat-card__label">Asistencia del mes</p>
-          <p className="tl-stat-card__value">87%</p>
-          <p className="tl-stat-card__detail">52 de 60 asistencias</p>
-        </div>
-        <div className="tl-stat-card">
-          <p className="tl-stat-card__label">Valoraciones pendientes</p>
-          <p className="tl-stat-card__value tl-stat-card__value--orange">8</p>
-          <p className="tl-stat-card__detail">Primer período 2026</p>
-        </div>
-      </div>
-
-      {/* Fila 1: Jornada + Progreso */}
-      <div className="tl-bottom-grid">
-
-        <section className="tl-jornada-card" aria-label="Jornada de hoy">
-          <div className="tl-jornada-card__header">
-            <h3 className="tl-jornada-card__title">Tu jornada</h3>
-            <p className="tl-jornada-card__date">{getCurrentDate()}</p>
-          </div>
-          <ul className="tl-jornada-list" role="list">
-            <li className="tl-jornada-item">
-              <span className="tl-jornada-item__time">10:00</span>
-              <span className="tl-jornada-item__dot tl-jornada-item__dot--teal" aria-hidden="true" />
-              <div className="tl-jornada-item__info">
-                <p className="tl-jornada-item__name">Música · Grupo A</p>
-                <p className="tl-jornada-item__meta">10 participantes · Salón 3</p>
-              </div>
+      {cargando ? (
+        <p style={{ padding: '1rem', color: 'var(--color-text-muted)', fontSize: 'var(--fs-sm)' }}>
+          Cargando…
+        </p>
+      ) : (
+        <>
+          {/* Hero — taller activo */}
+          <section className="tl-hero-card" aria-label="Taller activo">
+            <div className="tl-hero-card__deco" aria-hidden="true">
+              <span className="tl-hero-deco tl-hero-deco--lg" />
+              <span className="tl-hero-deco tl-hero-deco--sm" />
+            </div>
+            <div className="tl-hero-card__content">
+              <p className="tl-hero-card__tag">
+                {primerTaller ? 'TALLER ACTIVO' : 'SIN TALLERES ACTIVOS'}
+              </p>
+              <h2 className="tl-hero-card__title">
+                {primerTaller ? primerTaller.name : 'No hay talleres activos'}
+              </h2>
+              {primerTaller && (
+                <p className="tl-hero-card__sub">
+                  {estudiantesPorTaller[String(primerTaller.id)]?.size ?? 0} participantes
+                  {primerTaller.startsAt
+                    ? ` · desde ${formatFechaCorta(primerTaller.startsAt)}`
+                    : ''
+                  }
+                </p>
+              )}
+            </div>
+            {primerTaller && (
               <button
-                className="tl-jornada-item__btn"
-                aria-label="Abrir sesión Música Grupo A"
+                className="tl-hero-card__btn"
+                aria-label="Registrar sesión de clase"
                 onClick={() => navigate('/tallerista/talleres')}
-              >Abrir</button>
-            </li>
-            <li className="tl-jornada-item">
-              <span className="tl-jornada-item__time">2:00</span>
-              <span className="tl-jornada-item__dot tl-jornada-item__dot--orange" aria-hidden="true" />
-              <div className="tl-jornada-item__info">
-                <p className="tl-jornada-item__name">Valoración individual</p>
-                <p className="tl-jornada-item__meta">Mariana Gómez</p>
+              >
+                Registrar sesión
+              </button>
+            )}
+          </section>
+
+          {/* Stats */}
+          <div className="tl-stats-grid" role="region" aria-label="Estadísticas">
+            <div className="tl-stat-card">
+              <p className="tl-stat-card__label">Asistencias este mes</p>
+              <p className="tl-stat-card__value">{asistMes.length}</p>
+              <p className="tl-stat-card__detail">{totalEstudiantes} participantes en total</p>
+            </div>
+            <div className="tl-stat-card">
+              <p className="tl-stat-card__label">Habilidades valoradas</p>
+              <p className="tl-stat-card__value tl-stat-card__value--orange">{totalSkillsEvaluated}</p>
+              <p className="tl-stat-card__detail">Acumulado todos los talleres</p>
+            </div>
+          </div>
+
+          {/* Fila 1: Jornada + Progreso */}
+          <div className="tl-bottom-grid">
+
+            <section className="tl-jornada-card" aria-label="Talleres activos">
+              <div className="tl-jornada-card__header">
+                <h3 className="tl-jornada-card__title">Tu jornada</h3>
+                <p className="tl-jornada-card__date">{getCurrentDate()}</p>
               </div>
-              <button
-                className="tl-jornada-item__btn"
-                aria-label="Abrir valoración Mariana Gómez"
-                onClick={() => navigate('/tallerista/participante')}
-              >Abrir</button>
-            </li>
-          </ul>
-        </section>
+              {talleresActivos.length === 0 ? (
+                <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)', padding: '0.5rem 0' }}>
+                  Sin talleres activos programados.
+                </p>
+              ) : (
+                <ul className="tl-jornada-list" role="list">
+                  {talleresActivos.slice(0, 3).map((t, i) => (
+                    <li key={String(t.id)} className="tl-jornada-item">
+                      <span className="tl-jornada-item__time">{String(i + 1).padStart(2, '0')}</span>
+                      <span
+                        className={`tl-jornada-item__dot tl-jornada-item__dot--${i === 0 ? 'teal' : 'orange'}`}
+                        aria-hidden="true"
+                      />
+                      <div className="tl-jornada-item__info">
+                        <p className="tl-jornada-item__name">{t.name}</p>
+                        <p className="tl-jornada-item__meta">
+                          {estudiantesPorTaller[String(t.id)]?.size ?? 0} participantes
+                        </p>
+                      </div>
+                      <button
+                        className="tl-jornada-item__btn"
+                        aria-label={`Abrir ${t.name}`}
+                        onClick={() => navigate('/tallerista/talleres')}
+                      >Abrir</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-        <section className="tl-progreso-card" aria-label="Progreso del grupo">
-          <h3 className="tl-progreso-card__title">Progreso del grupo</h3>
-          <p className="tl-progreso-card__sub">Música · primer período</p>
-          <div className="tl-progreso-row"
-            role="progressbar" aria-valuenow={72} aria-valuemin={0} aria-valuemax={100} aria-label="Progreso 72%">
-            <div className="tl-progreso-bar">
-              <div className="tl-progreso-bar__fill" style={{ width: '72%' }} />
-            </div>
-            <span className="tl-progreso-bar__pct">72%</span>
-          </div>
-          <p className="tl-progreso-card__detail">106 de 150 indicadores valorados</p>
-          <div className="tl-progreso-highlights">
-            <div className="tl-progreso-highlight">
-              <ClockIcon /><span>Última sesión: Lunes 13 oct</span>
-            </div>
-            <div className="tl-progreso-highlight">
-              <StarSmIcon /><span>Indicadores al día: 106</span>
-            </div>
-          </div>
-        </section>
-
-      </div>
-
-      {/* Fila 2: Seguimiento + Certificados */}
-      <div className="tl-bottom-grid">
-
-        <section className="tl-seg-card" aria-label="Seguimiento reciente">
-          <h3 className="tl-seg-card__titulo">Seguimiento reciente de Música</h3>
-          <ul className="tl-seg-list" role="list">
-            {SEGUIMIENTO.map((s, i) => (
-              <li key={i} className="tl-seg-item">
-                <span className="tl-seg-item__fecha">{s.fecha}</span>
-                <div className="tl-seg-item__content">
-                  <p className="tl-seg-item__desc">{s.desc}</p>
-                  <p className="tl-seg-item__meta">{s.meta}</p>
+            <section className="tl-progreso-card" aria-label="Progreso del grupo">
+              <h3 className="tl-progreso-card__title">Progreso del grupo</h3>
+              <p className="tl-progreso-card__sub">
+                {primerTaller ? primerTaller.name : 'Todos los talleres'} · general
+              </p>
+              <div
+                className="tl-progreso-row"
+                role="progressbar"
+                aria-valuenow={groupProgress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Progreso ${groupProgress}%`}
+              >
+                <div className="tl-progreso-bar">
+                  <div className="tl-progreso-bar__fill" style={{ width: `${groupProgress}%` }} />
                 </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+                <span className="tl-progreso-bar__pct">{groupProgress}%</span>
+              </div>
+              <p className="tl-progreso-card__detail">{totalSkillsEvaluated} indicadores valorados</p>
+              <div className="tl-progreso-highlights">
+                {ultimaSesion && (
+                  <div className="tl-progreso-highlight">
+                    <ClockIcon />
+                    <span>Última sesión: {formatFechaCorta(ultimaSesion.attendedAt)}</span>
+                  </div>
+                )}
+                <div className="tl-progreso-highlight">
+                  <StarSmIcon /><span>Indicadores al día: {totalSkillsEvaluated}</span>
+                </div>
+              </div>
+            </section>
 
-        <section className="tl-certs-card" aria-label="Certificados y apoyo gráfico">
-          <div className="tl-certs-head">
-            <h3 className="tl-certs-head__titulo">Certificados y apoyo gráfico</h3>
-            <button
-              className="tl-ver-todo"
-              onClick={() => navigate('/tallerista/certificados')}
-            >Ver todo</button>
           </div>
-          <p className="tl-certs-sub">Recursos de Música</p>
-          <div className="tl-recursos-list">
-            {RECURSOS.map((r, i) => (
-              <div key={i} className="tl-rec-item">
-                <div className="tl-rec-item__icono">
-                  {r.tipo === 'cert' ? <MedalSmIcon /> : <VideoSmIcon />}
-                </div>
-                <div className="tl-rec-item__info">
-                  <p className="tl-rec-item__titulo">{r.titulo}</p>
-                  <p className="tl-rec-item__meta">{r.meta}</p>
-                </div>
-                <button
-                  className="tl-rec-item__btn"
-                  onClick={() => navigate(r.ruta)}
-                  aria-label={r.tipo === 'cert' ? 'Descargar certificado' : 'Ver evidencia'}
-                >
-                  {r.tipo === 'cert' ? <DownloadSmIcon /> : <ChevronRightSmIcon />}
+
+          {/* Fila 2: Seguimiento + Recursos */}
+          <div className="tl-bottom-grid">
+
+            <section className="tl-seg-card" aria-label="Seguimiento reciente">
+              <h3 className="tl-seg-card__titulo">Seguimiento reciente</h3>
+              {seguimiento.length === 0 ? (
+                <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)', padding: '0.5rem 0' }}>
+                  Sin observaciones registradas aún.
+                </p>
+              ) : (
+                <ul className="tl-seg-list" role="list">
+                  {seguimiento.map((s, i) => (
+                    <li key={i} className="tl-seg-item">
+                      <span className="tl-seg-item__fecha">{s.fecha}</span>
+                      <div className="tl-seg-item__content">
+                        <p className="tl-seg-item__desc">{s.desc}</p>
+                        <p className="tl-seg-item__meta">{s.meta}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="tl-certs-card" aria-label="Certificados y apoyo gráfico">
+              <div className="tl-certs-head">
+                <h3 className="tl-certs-head__titulo">Certificados y apoyo gráfico</h3>
+                <button className="tl-ver-todo" onClick={() => navigate('/tallerista/certificados')}>
+                  Ver todo
                 </button>
               </div>
-            ))}
-          </div>
-        </section>
+              <p className="tl-certs-sub">Recursos recientes</p>
+              {recursos.length === 0 ? (
+                <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)' }}>
+                  Sin recursos aún.
+                </p>
+              ) : (
+                <div className="tl-recursos-list">
+                  {recursos.map((r, i) => (
+                    <div key={i} className="tl-rec-item">
+                      <div className="tl-rec-item__icono">
+                        {r.tipo === 'cert' ? <MedalSmIcon /> : <VideoSmIcon />}
+                      </div>
+                      <div className="tl-rec-item__info">
+                        <p className="tl-rec-item__titulo">{r.titulo}</p>
+                        <p className="tl-rec-item__meta">{r.meta}</p>
+                      </div>
+                      <button
+                        className="tl-rec-item__btn"
+                        onClick={() => navigate(r.ruta)}
+                        aria-label={r.tipo === 'cert' ? 'Ver certificado' : 'Ver evidencia'}
+                      >
+                        {r.tipo === 'cert' ? <DownloadSmIcon /> : <ChevronRightSmIcon />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
 
-      </div>
+          </div>
+        </>
+      )}
 
     </div>
   )

@@ -965,6 +965,22 @@
   border-color: var(--color-text-dark);
 }
 
+.hab-hint-error {
+  font-size: var(--fs-xs, 0.75rem);
+  color: #DC2626;
+  margin-top: 0.25rem;
+}
+
+.hab-error {
+  font-size: var(--fs-sm);
+  color: #DC2626;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 
 @media (max-width: 1024px) {

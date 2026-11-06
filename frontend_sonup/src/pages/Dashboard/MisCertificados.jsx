@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getStudentCredentials } from '../../services/credentials.js'
 import './MisCertificados.css'
 
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
@@ -39,133 +40,36 @@ const DownloadIcon = () => (
   </svg>
 )
 
-/* ─── Mock Data ──────────────────────────────────────────────────────────── */
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
 
-const CERTIFICADOS = [
-  {
-    id: 'panaderia',
-    titulo: 'Taller de panadería',
-    subtitulo: 'Certificado de participación',
-    bgIcon: '#E2F2EF',
-    colorIcon: '#176D65',
-    horas: 12,
-    fecha: '16 de julio de 2025',
-  },
-  {
-    id: 'artes',
-    titulo: 'Muestra de Artes 2025',
-    subtitulo: 'Certificado de participación',
-    bgIcon: '#FFF0D8',
-    colorIcon: '#F49A18',
-    horas: 16,
-    fecha: '20 de agosto de 2025',
-  },
-  {
-    id: 'musica',
-    titulo: 'Proceso musical',
-    subtitulo: 'Certificado de participación',
-    bgIcon: '#E2EDF5',
-    colorIcon: '#3477A9',
-    horas: 20,
-    fecha: '10 de octubre de 2025',
-  },
+const ICON_PALETA = [
+  { bg: '#E2F2EF', color: '#176D65' },
+  { bg: '#FFF0D8', color: '#F49A18' },
+  { bg: '#E2EDF5', color: '#3477A9' },
+  { bg: '#F0E8F5', color: '#7B3D9B' },
 ]
+const paleta = (id) => ICON_PALETA[Number(String(id ?? '0').at(-1) ?? 0) % ICON_PALETA.length]
+
+const formatFecha = (iso) =>
+  new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
+
+const ESTADO_LABEL = { pending: 'Borrador', valid: 'Firmado', revoked: 'Revocado' }
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const MisCertificados = () => {
   const navigate = useNavigate()
+  const [certificados, setCertificados] = useState([])
+  const [cargando,     setCargando]     = useState(true)
   const [selectedCert, setSelectedCert] = useState(null)
 
-  const handleDownloadPDF = (cert) => {
-    // Genera un archivo imprimible o descarga el certificado
-    const certWindow = window.open('', '_blank')
-    if (!certWindow) {
-      alert('Por favor permite ventanas emergentes para descargar el certificado.')
-      return
-    }
-
-    certWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Certificado - ${cert.titulo}</title>
-        <style>
-          @page { size: landscape; margin: 15mm; }
-          body {
-            font-family: 'Georgia', serif;
-            margin: 0;
-            padding: 20px;
-            background: #fff;
-            color: #173632;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 90vh;
-          }
-          .border-outer {
-            border: 4px double #F49A18;
-            padding: 40px;
-            text-align: center;
-            width: 90%;
-            max-width: 850px;
-            box-sizing: border-box;
-          }
-          .logo {
-            font-family: sans-serif;
-            font-weight: 800;
-            letter-spacing: 0.2em;
-            color: #176D65;
-            font-size: 20px;
-            margin-bottom: 20px;
-          }
-          .title {
-            font-size: 22px;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            color: #173632;
-            margin-bottom: 20px;
-          }
-          .name {
-            font-size: 36px;
-            font-style: italic;
-            font-weight: bold;
-            color: #176D65;
-            margin: 25px 0;
-          }
-          .desc {
-            font-size: 15px;
-            color: #555;
-            line-height: 1.6;
-            margin-bottom: 30px;
-          }
-          .date {
-            font-size: 13px;
-            color: #777;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="border-outer">
-          <div class="logo">🎗️<br/>SON UP</div>
-          <div class="title">Certificado de Participación</div>
-          <p>Se otorga el presente certificado a</p>
-          <div class="name">Mariana Gómez</div>
-          <div class="desc">
-            por su participación activa en el <strong>${cert.titulo}</strong>, con una duración de ${cert.horas} horas.
-          </div>
-          <div class="date">Fundación Asisco · ${cert.fecha}</div>
-        </div>
-        <script>
-          window.onload = function() {
-            window.print();
-          };
-        </script>
-      </body>
-      </html>
-    `)
-    certWindow.document.close()
-  }
+  useEffect(() => {
+    const studentId = import.meta.env.VITE_STUDENT_ID || '1'
+    getStudentCredentials(studentId)
+      .then(data => setCertificados(data))
+      .catch(() => {})
+      .finally(() => setCargando(false))
+  }, [])
 
   return (
     <div className="mcert-page">
@@ -187,20 +91,15 @@ const MisCertificados = () => {
         </button>
       </header>
 
-      {/* Vista detalle de certificado */}
+      {/* Vista detalle */}
       {selectedCert ? (
         <section className="mcert-detail" aria-label="Detalle del certificado">
-          {/* Botón ver todos */}
           <div className="mcert-detail__nav">
-            <button
-              className="mcert-detail__back-link"
-              onClick={() => setSelectedCert(null)}
-            >
+            <button className="mcert-detail__back-link" onClick={() => setSelectedCert(null)}>
               <ChevronLeftIcon /> Ver todos
             </button>
           </div>
 
-          {/* Cuadro de certificado estilo diploma */}
           <article className="mcert-diploma">
             <div className="mcert-diploma__border">
               <div className="mcert-diploma__badge">
@@ -209,64 +108,82 @@ const MisCertificados = () => {
               <p className="mcert-diploma__brand">SON UP</p>
               <h2 className="mcert-diploma__heading">CERTIFICADO DE PARTICIPACIÓN</h2>
               <p className="mcert-diploma__intro">Se otorga el presente certificado a</p>
-              <p className="mcert-diploma__student">Mariana Gómez</p>
+              <p className="mcert-diploma__student">
+                {/* nombre del estudiante — usamos "participante" si no está disponible */}
+                Participante
+              </p>
               <p className="mcert-diploma__text">
-                por su participación activa en el {selectedCert.titulo}, con una duración de {selectedCert.horas} horas.
+                por su participación activa en <strong>{selectedCert.organizationName}</strong>.
               </p>
               <p className="mcert-diploma__date">
-                Fundación Asisco · {selectedCert.fecha}
+                Fundación Asisco · {selectedCert.createdAt ? formatFecha(selectedCert.createdAt) : '—'}
               </p>
             </div>
           </article>
 
-          {/* Botón descargar PDF */}
-          <button
-            className="mcert-download-btn"
-            onClick={() => handleDownloadPDF(selectedCert)}
-          >
-            <DownloadIcon />
-            <span>Descargar PDF</span>
-          </button>
+          {selectedCert.url && (
+            <a
+              href={selectedCert.url}
+              target="_blank"
+              rel="noreferrer"
+              className="mcert-download-btn"
+            >
+              <DownloadIcon />
+              <span>Ver certificado</span>
+            </a>
+          )}
         </section>
       ) : (
-        /* Vista lista de los 3 certificados */
+        /* Vista lista */
         <section className="mcert-list-section" aria-label="Lista de certificados">
-          <div className="mcert-grid" role="list">
-            {CERTIFICADOS.map(cert => (
-              <button
-                key={cert.id}
-                className="mcert-card"
-                role="listitem"
-                onClick={() => setSelectedCert(cert)}
-                aria-label={`Ver certificado de ${cert.titulo}`}
-              >
-                <div
-                  className="mcert-card__icon"
-                  style={{ backgroundColor: cert.bgIcon, color: cert.colorIcon }}
-                  aria-hidden="true"
-                >
-                  <RibbonIcon />
-                </div>
-                <div className="mcert-card__info">
-                  <h2 className="mcert-card__title">{cert.titulo}</h2>
-                  <p className="mcert-card__sub">{cert.subtitulo}</p>
-                </div>
-                <div className="mcert-card__chevron" aria-hidden="true">
-                  <ChevronRightIcon />
-                </div>
-              </button>
-            ))}
-          </div>
+          {cargando ? (
+            <p style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted, #888)' }}>
+              Cargando certificados…
+            </p>
+          ) : certificados.length === 0 ? (
+            <p style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted, #888)' }}>
+              Aún no tienes certificados.
+            </p>
+          ) : (
+            <div className="mcert-grid" role="list">
+              {certificados.map(cert => {
+                const p = paleta(cert.id)
+                return (
+                  <button
+                    key={String(cert.id)}
+                    className="mcert-card"
+                    role="listitem"
+                    onClick={() => setSelectedCert(cert)}
+                    aria-label={`Ver certificado de ${cert.organizationName}`}
+                  >
+                    <div
+                      className="mcert-card__icon"
+                      style={{ backgroundColor: p.bg, color: p.color }}
+                      aria-hidden="true"
+                    >
+                      <RibbonIcon />
+                    </div>
+                    <div className="mcert-card__info">
+                      <h2 className="mcert-card__title">{cert.organizationName}</h2>
+                      <p className="mcert-card__sub">
+                        {ESTADO_LABEL[cert.status] ?? cert.status}
+                        {cert.createdAt ? ` · ${formatFecha(cert.createdAt)}` : ''}
+                      </p>
+                    </div>
+                    <div className="mcert-card__chevron" aria-hidden="true">
+                      <ChevronRightIcon />
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </section>
       )}
 
       {/* Footer */}
       <footer className="mcert-footer">
-        <button
-          className="mcert-logout"
-          onClick={() => navigate('/login')}
-          aria-label="Cerrar sesión"
-        >
+        <button className="mcert-logout" onClick={() => navigate('/login')} aria-label="Cerrar sesión">
           <ChevronLeftIcon /> Cerrar sesión
         </button>
       </footer>

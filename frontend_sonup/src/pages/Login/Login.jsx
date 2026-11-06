@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
+import { api } from '../../services/api'
 import Logo     from '../../components/Logo/Logo'
 import RoleCard from '../../components/RoleCard/RoleCard'
 import './Login.css'
@@ -115,6 +116,8 @@ const Login = () => {
   const [password, setPassword]         = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [googleError, setGoogleError]   = useState('')
+  const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState('')
 
   const roleLabel = ROLES.find(r => r.id === selectedRole)?.label ?? ''
 
@@ -124,9 +127,20 @@ const Login = () => {
     return '/dashboard'
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    navigate(getDestino())
+    setLoading(true)
+    setError('')
+    try {
+      const data = await api.post('/auth/login', { email, password })
+      localStorage.setItem('token', data.token)
+      navigate(getDestino())
+    } catch {
+      localStorage.removeItem('token')
+      setError('Correo o contraseña incorrectos')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleGoogleLogin = useGoogleLogin({
@@ -231,8 +245,10 @@ const Login = () => {
 
             <a href="#" className="forgot-link">¿Olvidaste tu contraseña?</a>
 
-            <button type="submit" className="btn-primary">
-              Ingresar como {roleLabel}
+            {error && <p className="login-error">{error}</p>}
+
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? 'Ingresando…' : `Ingresar como ${roleLabel}`}
             </button>
           </form>
 

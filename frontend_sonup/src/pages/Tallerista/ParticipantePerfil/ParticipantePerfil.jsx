@@ -1,57 +1,12 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { getChildren, getChild, getChildGuardians } from '../../../services/children.js'
+import { getStudentCategoryAverages }            from '../../../services/skills.js'
+import { getStudentCredentials }                 from '../../../services/credentials.js'
+import { getStudentEvidences }                   from '../../../services/evidences.js'
+import { getStudentAttendances }                 from '../../../services/attendances.js'
+import { getWorkshops }                          from '../../../services/workshops.js'
 import './ParticipantePerfil.css'
-
-/* ─── Mock data ──────────────────────────────────────────────────────────── */
-
-const participante = {
-  iniciales: 'MG',
-  nombre:    'Mariana Gómez',
-  edad:      24,
-  grupo:     'Grupo jóvenes',
-  nivel:     'Nivel 2 · En progreso',
-  acudiente: {
-    nombre:   'Patricia Gómez · mamá',
-    autoriza: 'Autoriza fotos y vídeos',
-  },
-}
-
-const MODULOS = ['Música', 'Artes', 'Panadería', 'Lectoescritura']
-
-const habilidades = [
-  { nombre: 'Cognitiva',    logrado: 3, total: 5 },
-  { nombre: 'Comunicativa', logrado: 2, total: 5 },
-  { nombre: 'Corporal',     logrado: 1, total: 3 },
-  { nombre: 'Social',       logrado: 1, total: 2 },
-]
-
-const indicadores = [
-  { periodo: '2025-1', logrados: 4, total: 15 },
-  { periodo: '2025-2', logrados: 6, total: 15 },
-  { periodo: '2026-1', logrados: 7, total: 15 },
-]
-
-const apoyos = ['Instrucciones cortas', 'Práctica guiada', 'Grupos pequeños', 'Apoyos visuales']
-
-const ANAMNESIS_DETALLE = {
-  diagnostico:   'Discapacidad intelectual leve. Evaluada por equipo interdisciplinar en 2023.',
-  comunicacion:  ['Comunicación verbal simple', 'Apoyos visuales', 'Lenguaje sencillo'],
-  cognitivo:     ['Instrucciones cortas', 'Práctica guiada', 'Repetición con variación'],
-  social:        ['Grupos pequeños', 'Rol activo definido', 'Mediación entre pares'],
-  observaciones: 'Responde bien a rutinas estructuradas. Prefiere ver el resultado final. Sensibilidad en ambientes ruidosos.',
-  actualizacion: 'Laura Ríos · 15 sep 2026',
-}
-
-const seguimiento = [
-  { fecha: '10 oct', texto: 'Siguió el ritmo rápido sola por primera vez.',           tag: 'Música · Laura R.' },
-  { fecha: '3 oct',  texto: 'Participó con mayor autonomía en la actividad grupal.',   tag: 'Música · Equipo pedagógico' },
-  { fecha: '26 sep', texto: 'Respondió positivamente al uso de la secuencia visual.', tag: 'Música · Seguimiento' },
-]
-
-const certificados = [
-  { nombre: 'Proceso musical',                               tipo: 'Certificado · 12 horas', variante: 'cert'  },
-  { nombre: 'Siguió el ritmo rápido sola por primera vez.',  tipo: 'Video · 10 de octubre',  variante: 'video' },
-]
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
 
@@ -93,12 +48,118 @@ const FileTextIcon = () => (
   </svg>
 )
 
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
+
+const calcularEdad = (birthDate) => {
+  if (!birthDate) return null
+  const today = new Date()
+  const birth = new Date(birthDate)
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
+}
+
+const initiales = (first, last) =>
+  ((first?.[0] ?? '') + (last?.[0] ?? '')).toUpperCase() || '?'
+
+const formatFechaCorta = (iso) =>
+  new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'short' })
+
+const formatFechaLarga = (iso) =>
+  new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
+
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const ParticipantePerfil = () => {
-  const navigate = useNavigate()
-  const [moduloActivo, setModuloActivo] = useState('Música')
-  const [verMas,       setVerMas]       = useState(false)
+  const navigate    = useNavigate()
+  const { childId } = useParams()
+  const [verMas,    setVerMas]    = useState(false)
+  const [tabActivo, setTabActivo] = useState(null)
+
+  /* Datos */
+  const [niños,           setNiños]           = useState([])
+  const [niño,            setNiño]            = useState(null)
+  const [acudientes,      setAcudientes]      = useState([])
+  const [catAverages,     setCatAverages]     = useState([])
+  const [credenciales,    setCredenciales]    = useState([])
+  const [evidencias,      setEvidencias]      = useState([])
+  const [asistencias,     setAsistencias]     = useState([])
+  const [talleresMapa,    setTalleresMapa]    = useState({})
+  const [cargando,        setCargando]        = useState(true)
+
+  useEffect(() => {
+    if (!childId) return
+    const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
+    const load = async () => {
+      const results = await Promise.allSettled([
+        getChild(childId),
+        getChildGuardians(childId),
+        getStudentCategoryAverages(childId),
+        getStudentCredentials(childId),
+        getStudentEvidences(childId),
+        getStudentAttendances(childId),
+        getWorkshops(evaluatorId ? { evaluatorId } : {}),
+        getChildren(),
+      ])
+      const [child, guardians, catAvg, creds, evids, asist, ws, allChildren] = results
+
+      if (child.status    === 'fulfilled') setNiño(child.value)
+      if (guardians.status === 'fulfilled') setAcudientes(guardians.value)
+      if (catAvg.status   === 'fulfilled') {
+        setCatAverages(catAvg.value)
+        if (catAvg.value.length) setTabActivo(catAvg.value[0].categoryName)
+      }
+      if (creds.status    === 'fulfilled') setCredenciales(creds.value)
+      if (evids.status    === 'fulfilled') setEvidencias(evids.value)
+      if (asist.status    === 'fulfilled') setAsistencias(asist.value)
+      if (ws.status       === 'fulfilled') {
+        const mapa = {}
+        ws.value.forEach(w => { mapa[String(w.id)] = w.name })
+        setTalleresMapa(mapa)
+      }
+      if (allChildren.status === 'fulfilled') setNiños(allChildren.value)
+      setCargando(false)
+    }
+    load()
+  }, [childId])
+
+  /* Derivados */
+  const nombre   = niño ? [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Participante' : '…'
+  const edad     = niño?.birthDate ? calcularEdad(niño.birthDate) : null
+  const iniciales = niño ? initiales(niño.firstName, niño.lastName) : '?'
+  const acudiente = acudientes[0] ?? null
+
+  const progresoPct = useMemo(() => {
+    if (!catAverages.length) return 0
+    const avg = catAverages.reduce((s, c) => s + c.average, 0) / catAverages.length
+    return Math.round((avg / 5) * 100)
+  }, [catAverages])
+
+  const catActiva = catAverages.find(c => c.categoryName === tabActivo) ?? null
+
+  const seguimiento = useMemo(() =>
+    [...asistencias]
+      .filter(a => a.observation)
+      .sort((a, b) => new Date(b.attendedAt) - new Date(a.attendedAt))
+      .slice(0, 8)
+      .map(a => ({
+        fecha: formatFechaCorta(a.attendedAt),
+        texto: a.observation,
+        tag:   talleresMapa[String(a.workshopId)] ?? `Taller ${a.workshopId}`,
+      })),
+    [asistencias, talleresMapa]
+  )
+
+  if (!childId) {
+    return (
+      <div className="perfil-page">
+        <p style={{ padding: '2rem', color: 'var(--color-text-muted)' }}>
+          No se especificó un participante.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="perfil-page">
@@ -107,18 +168,37 @@ const ParticipantePerfil = () => {
       <header className="perfil-header">
         <div>
           <h1 className="perfil-header__title">Perfil del participante</h1>
-          <p className="perfil-header__subtitle">Información organizada por módulo formativo</p>
+          <p className="perfil-header__subtitle">Información organizada por categoría de habilidades</p>
         </div>
-        <button
-          className="btn-informe"
-          onClick={() => navigate('/tallerista/informes')}
-        >
-          <FileTextIcon />
-          Generar informe
-        </button>
+        <div className="perfil-header__acciones">
+          {niños.length > 0 && (
+            <select
+              className="perfil-selector"
+              value={String(childId)}
+              onChange={e => navigate(`/tallerista/participante/${e.target.value}`)}
+              aria-label="Cambiar participante"
+            >
+              {niños.map(n => (
+                <option key={String(n.id)} value={String(n.id)}>
+                  {[n.firstName, n.lastName].filter(Boolean).join(' ') || `Participante ${n.id}`}
+                </option>
+              ))}
+            </select>
+          )}
+          <button className="btn-informe" onClick={() => navigate(`/tallerista/informes/${childId}`)}>
+            <FileTextIcon />
+            Generar informe
+          </button>
+        </div>
       </header>
 
-      {/* ── Body ── */}
+      {cargando ? (
+        <p style={{ padding: '2rem', color: 'var(--color-text-muted)', fontSize: 'var(--fs-sm)' }}>
+          Cargando perfil…
+        </p>
+      ) : (
+
+      /* ── Body ── */
       <div className="perfil-body">
 
         {/* ── Sidebar ── */}
@@ -126,42 +206,55 @@ const ParticipantePerfil = () => {
 
           {/* Tarjeta de perfil */}
           <div className="card">
-            <div className="perfil-avatar">{participante.iniciales}</div>
-            <h2 className="perfil-nombre">{participante.nombre}</h2>
-            <p className="perfil-meta">{participante.edad} años · {participante.grupo}</p>
-            <span className="perfil-nivel">{participante.nivel}</span>
+            <div className="perfil-avatar">{iniciales}</div>
+            <h2 className="perfil-nombre">{nombre}</h2>
+            {edad !== null && (
+              <p className="perfil-meta">{edad} años</p>
+            )}
+            {niño?.notes && (
+              <span className="perfil-nivel">{niño.notes.slice(0, 60)}{niño.notes.length > 60 ? '…' : ''}</span>
+            )}
 
-            <div className="perfil-acudiente">
-              <span className="perfil-acudiente__label">Acudiente</span>
-              <p className="perfil-acudiente__nombre">{participante.acudiente.nombre}</p>
-              <p className="perfil-acudiente__dato">{participante.acudiente.autoriza}</p>
-            </div>
+            {acudiente && (
+              <div className="perfil-acudiente">
+                <span className="perfil-acudiente__label">Acudiente</span>
+                <p className="perfil-acudiente__nombre">{acudiente.fullName ?? '—'}</p>
+              </div>
+            )}
           </div>
 
           {/* Tarjeta de progreso */}
           <div className="card">
             <div className="progreso-header">
-              <span className="progreso-titulo">Progreso en {moduloActivo}</span>
-              <span className="progreso-pct">47%</span>
+              <span className="progreso-titulo">
+                {tabActivo ? `Progreso en ${tabActivo}` : 'Progreso general'}
+              </span>
+              <span className="progreso-pct">{progresoPct}%</span>
             </div>
             <p className="progreso-sub">Según las valoraciones registradas</p>
 
-            <ul className="barras-lista" role="list">
-              {habilidades.map(h => (
-                <li key={h.nombre} className="barra-item">
-                  <div className="barra-fila">
-                    <span className="barra-nombre">{h.nombre}</span>
-                    <span className="barra-ratio">{h.logrado} de {h.total}</span>
-                  </div>
-                  <div className="barra-track">
-                    <div
-                      className="barra-fill"
-                      style={{ width: `${(h.logrado / h.total) * 100}%` }}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {catAverages.length === 0 ? (
+              <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
+                Sin valoraciones aún.
+              </p>
+            ) : (
+              <ul className="barras-lista" role="list">
+                {catAverages.map(c => (
+                  <li key={String(c.skillCategoryId)} className="barra-item">
+                    <div className="barra-fila">
+                      <span className="barra-nombre">{c.categoryName}</span>
+                      <span className="barra-ratio">{c.average.toFixed(1)} de 5</span>
+                    </div>
+                    <div className="barra-track">
+                      <div
+                        className="barra-fill"
+                        style={{ width: `${(c.average / 5) * 100}%` }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
         </aside>
@@ -169,161 +262,169 @@ const ParticipantePerfil = () => {
         {/* ── Contenido principal ── */}
         <section className="perfil-content">
 
-          {/* Tabs de módulo */}
-          <div className="modulo-tabs" role="tablist">
-            {MODULOS.map(m => (
-              <button
-                key={m}
-                role="tab"
-                aria-selected={moduloActivo === m}
-                className={`modulo-tab${moduloActivo === m ? ' modulo-tab--activo' : ''}`}
-                onClick={() => setModuloActivo(m)}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
+          {/* Tabs de categoría */}
+          {catAverages.length > 0 && (
+            <div className="modulo-tabs" role="tablist">
+              {catAverages.map(c => (
+                <button
+                  key={String(c.skillCategoryId)}
+                  role="tab"
+                  aria-selected={tabActivo === c.categoryName}
+                  className={`modulo-tab${tabActivo === c.categoryName ? ' modulo-tab--activo' : ''}`}
+                  onClick={() => setTabActivo(c.categoryName)}
+                >
+                  {c.categoryName}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {/* ── Grid: indicadores (izq) + certificados (der) ── */}
+          {/* Grid: estado de categoría (izq) + certificados/evidencias (der) */}
           <div className="perfil-indicadores-fila">
 
-          <div className="card">
-            <div className="indicadores-cabecera">
-              <h3 className="card-titulo">Indicadores logrados en {moduloActivo}</h3>
-              <button className="btn-descargar-grafica" aria-label="Descargar gráfico">
-                <DownloadIcon />
-                Descargar
-              </button>
-            </div>
-            <div className="grafica">
-              {indicadores.map((d, i) => {
-                const esActual = i === indicadores.length - 1
-                const pct = (d.logrados / d.total) * 100
-                return (
-                  <div key={d.periodo} className="grafica__col">
-                    <span className="grafica__valor">{d.logrados}/{d.total}</span>
+            <div className="card">
+              <div className="indicadores-cabecera">
+                <h3 className="card-titulo">
+                  {catActiva ? `Habilidades en ${catActiva.categoryName}` : 'Habilidades'}
+                </h3>
+              </div>
+
+              {catActiva ? (
+                <div className="grafica">
+                  <div className="grafica__col" style={{ flex: 'none', width: '80px' }}>
+                    <span className="grafica__valor">{catActiva.skillCount} hab.</span>
                     <div className="grafica__pista">
                       <div
-                        className={`grafica__barra${esActual ? ' grafica__barra--actual' : ''}`}
-                        style={{ height: `${pct}%` }}
+                        className="grafica__barra grafica__barra--actual"
+                        style={{ height: `${(catActiva.average / 5) * 100}%` }}
                       />
                     </div>
-                    <span className="grafica__periodo">{d.periodo}</span>
+                    <span className="grafica__periodo">Actual</span>
                   </div>
-                )
-              })}
-            </div>
-            <p className="grafica__nota">
-              Se cuentan solo los indicadores con valor Logrado. El período actual sigue abierto.
-            </p>
-          </div>
+                </div>
+              ) : (
+                <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
+                  Sin valoraciones en esta categoría.
+                </p>
+              )}
 
-            {/* Certificado + Apoyo gráfico — columna derecha del grid */}
+              {catActiva && (
+                <p className="grafica__nota">
+                  Promedio: <strong>{catActiva.average.toFixed(2)} / 5</strong>
+                  &nbsp;· {catActiva.skillCount} habilidad{catActiva.skillCount !== 1 ? 'es' : ''} valorada{catActiva.skillCount !== 1 ? 's' : ''}.
+                </p>
+              )}
+            </div>
+
+            {/* Certificado + Apoyo gráfico — columna derecha */}
             <div className="perfil-fila-derecha">
 
               <div className="card">
                 <div className="cert-cabecera">
-                  <h3 className="card-titulo">Certificado</h3>
-                  <button className="btn-ver-todo" onClick={() => navigate('/tallerista/certificados')}>Ver todo</button>
-                </div>
-                <p className="cert-sub">Recursos de {moduloActivo}</p>
-                <div className="cert-item">
-                  <span className="cert-icono"><CertIcon /></span>
-                  <div className="cert-info">
-                    <p className="cert-nombre">Proceso musical</p>
-                    <p className="cert-tipo">Certificado · 12 horas</p>
-                  </div>
-                  <button
-                    className="cert-accion-btn"
-                    onClick={() => navigate('/tallerista/certificados')}
-                    aria-label="Descargar certificado"
-                  >
-                    <DownloadIcon />
+                  <h3 className="card-titulo">Certificados</h3>
+                  <button className="btn-ver-todo" onClick={() => navigate('/tallerista/certificados')}>
+                    Ver todo
                   </button>
                 </div>
+                {credenciales.length === 0 ? (
+                  <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)' }}>
+                    Sin certificados aún.
+                  </p>
+                ) : credenciales.slice(0, 2).map(c => (
+                  <div key={String(c.id)} className="cert-item">
+                    <span className="cert-icono"><CertIcon /></span>
+                    <div className="cert-info">
+                      <p className="cert-nombre">{c.organizationName}</p>
+                      <p className="cert-tipo">
+                        Certificado · {c.createdAt ? formatFechaLarga(c.createdAt) : '—'}
+                      </p>
+                    </div>
+                    {c.url && (
+                      <a
+                        className="cert-accion-btn"
+                        href={c.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Ver certificado"
+                      >
+                        <DownloadIcon />
+                      </a>
+                    )}
+                  </div>
+                ))}
               </div>
 
               <div className="card">
                 <h3 className="card-titulo">Apoyo gráfico</h3>
-                <p className="cert-sub">Videos de {moduloActivo}</p>
-                <div className="cert-item">
-                  <span className="cert-icono"><VideoIcon /></span>
-                  <div className="cert-info">
-                    <p className="cert-nombre">Siguió el ritmo rápido sola por primera vez.</p>
-                    <p className="cert-tipo">Video · 10 de octubre</p>
+                {evidencias.length === 0 ? (
+                  <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)' }}>
+                    Sin evidencias aún.
+                  </p>
+                ) : evidencias.slice(0, 2).map(e => (
+                  <div key={String(e.id)} className="cert-item">
+                    <span className="cert-icono"><VideoIcon /></span>
+                    <div className="cert-info">
+                      <p className="cert-nombre">{e.title}</p>
+                      <p className="cert-tipo">
+                        Evidencia · {e.createdAt ? formatFechaCorta(e.createdAt) : '—'}
+                      </p>
+                    </div>
+                    <button
+                      className="cert-accion-btn"
+                      onClick={() => navigate('/tallerista/evidencias')}
+                      aria-label="Ver evidencia"
+                    >
+                      <ChevronRightIcon />
+                    </button>
                   </div>
-                  <button
-                    className="cert-accion-btn"
-                    onClick={() => navigate('/tallerista/evidencias')}
-                    aria-label="Ver video"
-                  >
-                    <ChevronRightIcon />
-                  </button>
-                </div>
+                ))}
               </div>
 
             </div>
-          </div>{/* /perfil-indicadores-fila */}
+          </div>
 
           {/* Información prioritaria */}
-          <div className="card card--prioritaria">
-            <div className="prioritaria-cuerpo">
-              <div>
-                <p className="prioritaria-tag">Información prioritaria · Uso interno</p>
-                <h3 className="prioritaria-titulo">Anamnesis y perfil de apoyo</h3>
-                <p className="prioritaria-apoyos">{apoyos.join(' · ')}</p>
-              </div>
-              <button className="btn-ver-mas" onClick={() => setVerMas(v => !v)}>
-                {verMas ? 'Ver menos ↑' : 'Ver más ↓'}
-              </button>
-            </div>
-
-            {verMas && (
-              <div className="anamnesis-expandida">
-                <p className="anamnesis-dx">{ANAMNESIS_DETALLE.diagnostico}</p>
-                <div className="anamnesis-grupos">
-                  <div className="anamnesis-grupo">
-                    <p className="anamnesis-grupo__titulo">Apoyos comunicativos</p>
-                    <div className="anamnesis-tags">
-                      {ANAMNESIS_DETALLE.comunicacion.map(t => <span key={t} className="anamnesis-tag">{t}</span>)}
-                    </div>
-                  </div>
-                  <div className="anamnesis-grupo">
-                    <p className="anamnesis-grupo__titulo">Apoyos cognitivos</p>
-                    <div className="anamnesis-tags">
-                      {ANAMNESIS_DETALLE.cognitivo.map(t => <span key={t} className="anamnesis-tag">{t}</span>)}
-                    </div>
-                  </div>
-                  <div className="anamnesis-grupo">
-                    <p className="anamnesis-grupo__titulo">Apoyos sociales</p>
-                    <div className="anamnesis-tags">
-                      {ANAMNESIS_DETALLE.social.map(t => <span key={t} className="anamnesis-tag">{t}</span>)}
-                    </div>
-                  </div>
+          {niño?.notes && (
+            <div className="card card--prioritaria">
+              <div className="prioritaria-cuerpo">
+                <div>
+                  <p className="prioritaria-tag">Información prioritaria · Uso interno</p>
+                  <h3 className="prioritaria-titulo">Notas del participante</h3>
+                  <p className="prioritaria-apoyos">{niño.notes}</p>
                 </div>
-                <p className="anamnesis-obs">{ANAMNESIS_DETALLE.observaciones}</p>
-                <p className="anamnesis-update">Actualizado por: {ANAMNESIS_DETALLE.actualizacion}</p>
+                <button className="btn-ver-mas" onClick={() => setVerMas(v => !v)}>
+                  {verMas ? 'Ver menos ↑' : 'Ver más ↓'}
+                </button>
               </div>
+            </div>
+          )}
+
+          {/* Seguimiento reciente */}
+          <div className="card">
+            <h3 className="card-titulo">Seguimiento reciente</h3>
+            {seguimiento.length === 0 ? (
+              <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)' }}>
+                Sin observaciones registradas aún.
+              </p>
+            ) : (
+              <ul className="seguimiento-lista" role="list">
+                {seguimiento.map((s, i) => (
+                  <li key={i} className="seguimiento-item">
+                    <span className="seguimiento-fecha">{s.fecha}</span>
+                    <div>
+                      <p className="seguimiento-texto">{s.texto}</p>
+                      <p className="seguimiento-tag">{s.tag}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 
-          {/* Seguimiento reciente — ancho completo */}
-          <div className="card">
-            <h3 className="card-titulo">Seguimiento reciente de {moduloActivo}</h3>
-            <ul className="seguimiento-lista" role="list">
-              {seguimiento.map((s, i) => (
-                <li key={i} className="seguimiento-item">
-                  <span className="seguimiento-fecha">{s.fecha}</span>
-                  <div>
-                    <p className="seguimiento-texto">{s.texto}</p>
-                    <p className="seguimiento-tag">{s.tag}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
         </section>
       </div>
+
+      )}
     </div>
   )
 }

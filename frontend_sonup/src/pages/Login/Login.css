@@ -316,6 +316,12 @@
   cursor: not-allowed;
 }
 
+.login-error {
+  font-size: var(--fs-xs);
+  color: #c0392b;
+  margin: 0;
+}
+
 .google-error {
   font-size: var(--fs-xs);
   color: #c0392b;

@@ -1,4 +1,7 @@
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getStudentAttendances } from '../../services/attendances.js'
+import { getWorkshops } from '../../services/workshops.js'
 import Logo from '../../components/Logo/Logo'
 import './MisClases.css'
 
@@ -32,30 +35,67 @@ const CheckIcon = () => (
   </svg>
 )
 
-/* ─── Data ───────────────────────────────────────────────────────────────── */
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
 
-const CLASES = [
-  { id: 1, dia: '10', mes: 'OCT', materia: 'Música',     tema: 'Ritmo con palmas',    asistida: true  },
-  { id: 2, dia: '14', mes: 'OCT', materia: 'Música',     tema: 'Tambor y movimiento', asistida: false },
-  { id: 3, dia: '18', mes: 'OCT', materia: 'Artes',      tema: 'Mezcla de colores',   asistida: false },
-  { id: 4, dia: '21', mes: 'OCT', materia: 'Panadería',  tema: 'Pan de queso',        asistida: false },
-]
+const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
+function agruparPorMes(asistencias) {
+  const grupos = {}
+  asistencias.forEach(a => {
+    const d = new Date(a.attendedAt)
+    const key = `${d.getFullYear()}-${d.getMonth()}`
+    if (!grupos[key]) grupos[key] = { label: `${MESES_ES[d.getMonth()]} ${d.getFullYear()}`, items: [] }
+    grupos[key].items.push(a)
+  })
+  return Object.values(grupos)
+}
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const MisClases = () => {
   const navigate = useNavigate()
+  const [asistencias,  setAsistencias]  = useState([])
+  const [talleresMapa, setTalleresMapa] = useState({})
+  const [tallerActivo, setTallerActivo] = useState(null)
+  const [cargando,     setCargando]     = useState(true)
+
+  useEffect(() => {
+    const studentId = import.meta.env.VITE_STUDENT_ID || '1'
+    const load = async () => {
+      try {
+        const [asistRes, wsRes] = await Promise.allSettled([
+          getStudentAttendances(studentId),
+          getWorkshops({}),
+        ])
+
+        const asist = asistRes.status === 'fulfilled' ? asistRes.value : []
+        const sorted = [...asist].sort((a, b) => new Date(b.attendedAt) - new Date(a.attendedAt))
+        setAsistencias(sorted)
+
+        const allWs = wsRes.status === 'fulfilled' ? wsRes.value : []
+        const mapa = {}
+        allWs.forEach(w => { mapa[String(w.id)] = w })
+        setTalleresMapa(mapa)
+
+        const attendedIds = new Set(asist.map(a => String(a.workshopId)))
+        const activo = allWs.find(w => w.status === 'active' && attendedIds.has(String(w.id)))
+        const ultimo = allWs.find(w => attendedIds.has(String(w.id)))
+        setTallerActivo(activo ?? ultimo ?? null)
+
+      } catch {}
+      finally { setCargando(false) }
+    }
+    load()
+  }, [])
+
+  const grupos = useMemo(() => agruparPorMes(asistencias), [asistencias])
 
   return (
     <div className="mc-page">
 
       {/* Top bar */}
       <header className="mc-topbar">
-        <button
-          className="mc-topbar__back"
-          onClick={() => navigate('/dashboard')}
-          aria-label="Volver al inicio"
-        >
+        <button className="mc-topbar__back" onClick={() => navigate('/dashboard')} aria-label="Volver al inicio">
           <ChevronLeftIcon />
         </button>
         <h1 className="mc-topbar__title">Mis clases</h1>
@@ -64,57 +104,67 @@ const MisClases = () => {
         </button>
       </header>
 
-      {/* Hero — próxima clase */}
-      <section className="mc-hero" aria-label="Próxima clase">
-        <div className="mc-hero__icon-wrap" aria-hidden="true">
-          <MusicIcon />
-        </div>
-        <div className="mc-hero__content">
-          <p className="mc-hero__tag">PRÓXIMA CLASE</p>
-          <p className="mc-hero__title">Música</p>
-          <p className="mc-hero__sub">Sábado 14 · 10:00 de la mañana</p>
-        </div>
-        <span className="mc-hero__deco" aria-hidden="true" />
-      </section>
+      {/* Hero — taller activo */}
+      {!cargando && tallerActivo && (
+        <section className="mc-hero" aria-label="Próxima clase">
+          <div className="mc-hero__icon-wrap" aria-hidden="true">
+            <MusicIcon />
+          </div>
+          <div className="mc-hero__content">
+            <p className="mc-hero__tag">PRÓXIMA CLASE</p>
+            <p className="mc-hero__title">{tallerActivo.name}</p>
+            {tallerActivo.startsAt && (
+              <p className="mc-hero__sub">
+                Desde {new Date(tallerActivo.startsAt).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}
+              </p>
+            )}
+          </div>
+          <span className="mc-hero__deco" aria-hidden="true" />
+        </section>
+      )}
 
       {/* Lista de clases */}
-      <section className="mc-section" aria-label="Clases de octubre">
-        <h2 className="mc-section__month">Octubre</h2>
-
-        <ul className="mc-grid" role="list">
-          {CLASES.map(c => (
-            <li key={c.id} className={`mc-clase-card${c.asistida ? ' mc-clase-card--done' : ''}`}>
-              {/* Fecha */}
-              <div className="mc-clase-card__fecha" aria-label={`${c.dia} de ${c.mes}`}>
-                <span className="mc-clase-card__dia">{c.dia}</span>
-                <span className="mc-clase-card__mes">{c.mes}</span>
-              </div>
-
-              {/* Info */}
-              <div className="mc-clase-card__info">
-                <p className="mc-clase-card__materia">{c.materia}</p>
-                <p className="mc-clase-card__tema">{c.tema}</p>
-              </div>
-
-              {/* Estado */}
-              <div
-                className={`mc-clase-card__estado${c.asistida ? ' mc-clase-card__estado--done' : ''}`}
-                aria-label={c.asistida ? 'Asistida' : 'Pendiente'}
-              >
-                {c.asistida && <CheckIcon />}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {cargando ? (
+        <p style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted, #888)' }}>
+          Cargando clases…
+        </p>
+      ) : grupos.length === 0 ? (
+        <p style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted, #888)' }}>
+          Aún no hay clases registradas.
+        </p>
+      ) : grupos.map(grupo => (
+        <section key={grupo.label} className="mc-section" aria-label={`Clases de ${grupo.label}`}>
+          <h2 className="mc-section__month">{grupo.label}</h2>
+          <ul className="mc-grid" role="list">
+            {grupo.items.map(a => {
+              const d    = new Date(a.attendedAt)
+              const dia  = d.getDate()
+              const mes  = MESES_ES[d.getMonth()].slice(0, 3).toUpperCase()
+              const ws   = talleresMapa[String(a.workshopId)]
+              const tema = a.observation || ws?.name || `Taller ${a.workshopId}`
+              return (
+                <li key={String(a.id)} className="mc-clase-card mc-clase-card--done">
+                  <div className="mc-clase-card__fecha" aria-label={`${dia} de ${mes}`}>
+                    <span className="mc-clase-card__dia">{dia}</span>
+                    <span className="mc-clase-card__mes">{mes}</span>
+                  </div>
+                  <div className="mc-clase-card__info">
+                    <p className="mc-clase-card__materia">{ws?.name ?? `Taller ${a.workshopId}`}</p>
+                    <p className="mc-clase-card__tema">{tema}</p>
+                  </div>
+                  <div className="mc-clase-card__estado mc-clase-card__estado--done" aria-label="Asistida">
+                    <CheckIcon />
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ))}
 
       {/* Footer */}
       <footer className="mc-footer">
-        <button
-          className="mc-logout"
-          onClick={() => navigate('/login')}
-          aria-label="Cerrar sesión"
-        >
+        <button className="mc-logout" onClick={() => navigate('/login')} aria-label="Cerrar sesión">
           <ChevronLeftIcon /> Cerrar sesión
         </button>
       </footer>

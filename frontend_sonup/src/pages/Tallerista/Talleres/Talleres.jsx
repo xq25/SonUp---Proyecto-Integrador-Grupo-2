@@ -1,5 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getWorkshops, getWorkshopSkills } from '../../../services/workshops.js'
+import { getChildren }                      from '../../../services/children.js'
+import { createAttendance }                 from '../../../services/attendances.js'
+import { createEvaluation, getEvaluationScales } from '../../../services/evaluations.js'
+import { getSkills, getSkillCategories }    from '../../../services/skills.js'
 import './Talleres.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -21,75 +26,11 @@ const UploadIcon = () => (
 
 const TALLERES_OPTS = ['Música · Jóvenes', 'Artes · Jóvenes', 'Panadería · Jóvenes']
 
-const PARTICIPANTES = [
-  { id: 1, nombre: 'Mariana Gómez',  iniciales: 'MG' },
-  { id: 2, nombre: 'Julián Ocampo',  iniciales: 'JO' },
-  { id: 3, nombre: 'Sofía Arango',   iniciales: 'SA' },
-  { id: 4, nombre: 'Tomás Herrera',  iniciales: 'TH' },
-  { id: 5, nombre: 'Daniela Ruiz',   iniciales: 'DR' },
-  { id: 6, nombre: 'Samuel Patiño',  iniciales: 'SP' },
-]
-
 const FASES = [
   { n: 1, label: 'Publicación del taller'    },
   { n: 2, label: 'Toma de asistencia'        },
   { n: 3, label: 'Valoraciones y evidencias' },
 ]
-
-const DIMENSIONES = [
-  {
-    nombre: 'Dimensión cognitiva',
-    indicadores: [
-      'Sigue el compás y reconoce las figuras musicales',
-      'Solicita ayuda ante alguna dificultad',
-      'Responde cuando se le llama por el nombre',
-      'Reconoce algunos instrumentos vistos en clase',
-      'Realiza ejercicios de ritmo y solfeo grupal',
-    ],
-  },
-  {
-    nombre: 'Dimensión comunicativa',
-    indicadores: [
-      'Responde y reconoce sonidos graves, medios y agudos',
-      'Imita gestos y movimientos que realiza el docente',
-      'Mira con atención el rostro del docente',
-      'Comprende lo que se le dice',
-    ],
-  },
-  {
-    nombre: 'Dimensión corporal',
-    indicadores: [
-      'Realiza ejercicios musicales moviendo manos y pies',
-      'Manifiesta con risas o gestos el disfrute de las actividades',
-      'Participa activamente en las actividades musicales',
-    ],
-  },
-  {
-    nombre: 'Dimensión social',
-    indicadores: [
-      'Participa en actividades grupales sin conflictos',
-      'Ayuda a sus compañeros cuando lo necesitan',
-      'Respeta los turnos durante las actividades',
-    ],
-  },
-]
-
-const TOTAL_IND = DIMENSIONES.reduce((s, d) => s + d.indicadores.length, 0)
-
-const VAL_INICIALES = {
-  '1-0-0': 'EP', '1-0-1': 'L',  '1-0-2': 'L',  '1-0-3': 'L',  '1-0-4': 'EP',
-  '1-1-0': 'EP', '1-1-1': 'L',  '1-1-2': 'L',  '1-1-3': 'L',
-  '1-2-0': 'EP', '1-2-1': 'L',  '1-2-2': 'L',
-  '2-0-0': 'L',  '2-0-1': 'L',  '2-0-2': 'L',  '2-0-3': 'L',  '2-0-4': 'L',
-  '2-1-0': 'L',  '2-1-1': 'L',  '2-1-2': 'L',  '2-1-3': 'L',
-  '2-2-0': 'L',  '2-2-1': 'L',  '2-2-2': 'L',
-  '2-3-0': 'L',  '2-3-1': 'L',  '2-3-2': 'L',
-  '3-0-0': 'L',  '3-0-1': 'L',  '3-0-2': 'L',  '3-0-3': 'L',  '3-0-4': 'L',
-  '3-1-0': 'L',  '3-1-1': 'L',  '3-1-2': 'L',  '3-1-3': 'L',
-  '3-2-0': 'L',  '3-2-1': 'L',  '3-2-2': 'L',
-  '3-3-0': 'L',  '3-3-1': 'L',  '3-3-2': 'L',
-  '5-0-0': 'L',  '5-0-1': 'EP', '5-0-2': 'L',  '5-0-3': 'L',
-}
 
 const TITULOS = {
   1: { h: 'Publicación del taller',     sub: 'Define el tema, los objetivos y la actividad que desarrollarás.' },
@@ -103,6 +44,13 @@ const Talleres = () => {
   const navigate = useNavigate()
   const [fase, setFase] = useState(1)
   const [guardando, setGuardando] = useState(false)
+
+  /* Vista */
+  const [vista, setVista]           = useState('lista')
+  const [talleres, setTalleres]     = useState([])
+  const [cargando, setCargando]     = useState(true)
+  const [errorCarga, setErrorCarga] = useState(false)
+  const [tallerActivo, setTallerActivo] = useState(null)
 
   /* Fase 1 */
   const [sesion, setSesion] = useState({
@@ -121,19 +69,62 @@ const Talleres = () => {
     materiales: ['Tambor', 'Panderetas', 'Parlante', 'Hojas con figuras musicales'],
   })
 
+  /* Datos reales */
+  const [estudiantes,        setEstudiantes]        = useState([])
+  const [habilidadesTaller,  setHabilidadesTaller]  = useState([])
+  const [escalas,            setEscalas]            = useState([])
+  const [asistenciasIds,     setAsistenciasIds]     = useState({})
+  const [cargandoDatos,      setCargandoDatos]      = useState(false)
+  const [guardandoAsistencia, setGuardandoAsistencia] = useState(false)
+
   /* Fase 2 */
-  const [asistencia, setAsistencia] = useState(
-    () => Object.fromEntries(PARTICIPANTES.map(p => [p.id, p.id !== 4]))
-  )
+  const [asistencia, setAsistencia] = useState({})
 
   /* Fase 3 */
-  const [participanteActivo, setParticipanteActivo] = useState(PARTICIPANTES[0].id)
-  const [valoraciones,       setValoraciones]       = useState(VAL_INICIALES)
-  const [observacion,        setObservacion]        = useState(
-    'El grupo siguió el pulso lento sin ayuda. En el ritmo rápido varios necesitaron apoyo visual.'
-  )
+  const [participanteActivo, setParticipanteActivo] = useState(null)
+  const [valoraciones,       setValoraciones]       = useState({})
+  const [observacion,        setObservacion]        = useState('')
   const [evidencias,         setEvidencias]         = useState([])
   const inputEvidencias = useRef(null)
+
+  useEffect(() => {
+    const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
+    getWorkshops(evaluatorId ? { evaluatorId } : {})
+      .then(setTalleres)
+      .catch(() => setErrorCarga(true))
+      .finally(() => setCargando(false))
+  }, [])
+
+  const cargarDatosTaller = async (taller) => {
+    setTallerActivo(taller)
+    setSesion(s => ({ ...s, taller: taller.name }))
+    setVista('form')
+    setCargandoDatos(true)
+    try {
+      const [kids, workshopSkills, allSkills, categorias, escs] = await Promise.all([
+        getChildren(),
+        getWorkshopSkills(taller.id),
+        getSkills(),
+        getSkillCategories(),
+        getEvaluationScales(),
+      ])
+      // Enriquecer workshop_skills con nombre de habilidad y categoría
+      const habs = workshopSkills.map(ws => {
+        const skill = allSkills.find(s => s.id === ws.skillId)
+        const cat   = categorias.find(c => c.id === skill?.skillCategoryId)
+        return { ...ws, skillNombre: skill?.name ?? `Habilidad ${ws.skillId}`, catId: cat?.id ?? 'sin-cat', catNombre: cat?.name ?? 'Habilidades' }
+      })
+      setHabilidadesTaller(habs)
+      setEscalas([...escs].sort((a, b) => a.numValue - b.numValue))
+      setEstudiantes(kids)
+      setAsistencia(Object.fromEntries(kids.map(k => [k.childId, true])))
+      setParticipanteActivo(kids[0]?.childId ?? null)
+    } catch {
+      // Si falla la carga, el formulario queda vacío
+    } finally {
+      setCargandoDatos(false)
+    }
+  }
 
   /* Fase 1 helpers */
   const [nuevoPaso,     setNuevoPaso]     = useState('')
@@ -156,10 +147,33 @@ const Talleres = () => {
 
   /* Fase 2 helpers */
   const presentes     = Object.values(asistencia).filter(Boolean).length
-  const total         = PARTICIPANTES.length
-  const pctAsistencia = Math.round((presentes / total) * 100)
+  const total         = estudiantes.length
+  const pctAsistencia = total > 0 ? Math.round((presentes / total) * 100) : 0
 
   const toggleAsistencia = (id, val) => setAsistencia(a => ({ ...a, [id]: val }))
+
+  const guardarAsistencia = async () => {
+    setGuardandoAsistencia(true)
+    try {
+      const attendedAt = sesion.fecha && sesion.horaInicio
+        ? `${sesion.fecha}T${sesion.horaInicio}:00-05:00`
+        : new Date().toISOString()
+      const attending = Object.entries(asistencia).filter(([, asistio]) => asistio)
+      const results = await Promise.allSettled(
+        attending.map(([childId]) =>
+          createAttendance({ studentId: childId, workshopId: tallerActivo.id, attendedAt })
+        )
+      )
+      const ids = {}
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') ids[attending[i][0]] = r.value.id
+      })
+      setAsistenciasIds(ids)
+    } catch { /* continúa igual */ } finally {
+      setGuardandoAsistencia(false)
+      setFase(3)
+    }
+  }
 
   /* Fechas */
   const fechaDisplay = sesion.fecha
@@ -175,9 +189,48 @@ const Talleres = () => {
   const [tallerNombre, tallerGrupo = ''] = sesion.taller.split(' · ')
 
   /* Fase 3 helpers */
-  const guardarValoraciones = () => {
+  const dimensionesReales = (() => {
+    const grupos = {}
+    habilidadesTaller.forEach(ws => {
+      if (!grupos[ws.catId]) grupos[ws.catId] = { nombre: ws.catNombre, habilidades: [] }
+      grupos[ws.catId].habilidades.push({ id: ws.id, nombre: ws.skillNombre })
+    })
+    return Object.values(grupos)
+  })()
+
+  const getVal = (pId, wsId) => valoraciones[`${pId}-${wsId}`] ?? null
+  const setVal = (pId, wsId, v) =>
+    setValoraciones(prev => ({ ...prev, [`${pId}-${wsId}`]: v }))
+
+  const statusParticipante = (pId) => {
+    const valorados = habilidadesTaller.filter(ws => getVal(pId, ws.id)).length
+    const total_hab = habilidadesTaller.length
+    if (valorados === 0)        return 'Sin empezar'
+    if (valorados === total_hab) return 'Completo'
+    return `${valorados} de ${total_hab} valorados`
+  }
+
+  const guardarValoraciones = async () => {
     setGuardando(true)
-    setTimeout(() => navigate('/tallerista/inicio'), 1400)
+    try {
+      const promises = Object.entries(valoraciones)
+        .filter(([, scaleId]) => scaleId)
+        .map(([key, scaleId]) => {
+          const [childId, workshopSkillId] = key.split('-')
+          const attendanceId = asistenciasIds[childId]
+          if (!attendanceId) return null
+          return createEvaluation({
+            workshopAttendanceId: attendanceId,
+            workshopSkillId,
+            evaluationScaleId: scaleId,
+          })
+        })
+        .filter(Boolean)
+      await Promise.allSettled(promises)
+    } finally {
+      setGuardando(false)
+      navigate('/tallerista/inicio')
+    }
   }
 
   const agregarEvidencias = (e) => {
@@ -186,21 +239,6 @@ const Talleres = () => {
     e.target.value = ''
   }
   const quitarEvidencia = (i) => setEvidencias(prev => prev.filter((_, idx) => idx !== i))
-
-  const getVal = (pId, di, ii) => valoraciones[`${pId}-${di}-${ii}`] ?? null
-
-  const setVal = (pId, di, ii, v) =>
-    setValoraciones(prev => ({ ...prev, [`${pId}-${di}-${ii}`]: v }))
-
-  const statusParticipante = (pId) => {
-    let valorados = 0
-    DIMENSIONES.forEach((d, di) =>
-      d.indicadores.forEach((_, ii) => { if (getVal(pId, di, ii)) valorados++ })
-    )
-    if (valorados === 0)       return 'Sin empezar'
-    if (valorados === TOTAL_IND) return 'Completo'
-    return `${valorados} de ${TOTAL_IND} valorados`
-  }
 
   /* ── Stepper ── */
   const Stepper = () => (
@@ -231,6 +269,57 @@ const Talleres = () => {
     </div>
   )
 
+  /* ─── Vista: lista de talleres ─── */
+  if (vista === 'lista') {
+    const STATUS_LABEL = { active: 'Activo', planned: 'Pendiente de iniciar', finished: 'Finalizado', cancelled: 'Cancelado' }
+    return (
+      <div className="talleres-page">
+        <header className="talleres-header">
+          <div>
+            <h1 className="talleres-titulo">Mis talleres</h1>
+            <p className="talleres-sub">Selecciona un taller activo para registrar una sesión.</p>
+          </div>
+        </header>
+
+        {cargando && <p className="talleres-estado">Cargando talleres…</p>}
+        {errorCarga && <p className="talleres-estado talleres-estado--error">No se pudieron cargar los talleres.</p>}
+        {!cargando && !errorCarga && talleres.length === 0 && (
+          <p className="talleres-estado">No tienes talleres asignados.</p>
+        )}
+
+        {!cargando && !errorCarga && talleres.length > 0 && (
+          <ul className="talleres-lista" role="list">
+            {talleres.map(t => {
+              const activo = t.status === 'active'
+              return (
+                <li key={t.id} className={`taller-item${activo ? '' : ' taller-item--inactivo'}`}>
+                  <div className="taller-item__info">
+                    <h3 className="taller-item__nombre">{t.name}</h3>
+                    <span className={`taller-badge taller-badge--${t.status}`}>
+                      {STATUS_LABEL[t.status] ?? t.status}
+                    </span>
+                  </div>
+                  {activo ? (
+                    <button
+                      className="btn-publicar btn-publicar--sm"
+                      onClick={() => cargarDatosTaller(t)}
+                    >
+                      Registrar sesión
+                    </button>
+                  ) : (
+                    <span className="taller-no-activo">
+                      {t.status === 'planned' ? 'Pendiente de iniciar' : '—'}
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+    )
+  }
+
   /* ─────────────────────────────────────────── RENDER ─── */
   return (
     <div className="talleres-page">
@@ -238,6 +327,9 @@ const Talleres = () => {
       {/* ── Header ── */}
       <header className="talleres-header">
         <div>
+          <button className="btn-volver btn-volver--header" onClick={() => { setVista('lista'); setFase(1) }}>
+            ← Volver a mis talleres
+          </button>
           <h1 className="talleres-titulo">{TITULOS[fase].h}</h1>
           <p className="talleres-sub">{TITULOS[fase].sub}</p>
         </div>
@@ -384,22 +476,30 @@ const Talleres = () => {
                 <span className="asistencia-card__contador">{presentes} de {total} presentes</span>
               </div>
               <ul className="asistencia-lista" role="list">
-                {PARTICIPANTES.map(p => (
-                  <li key={p.id} className="asistencia-item">
-                    <div className="asistencia-avatar">{p.iniciales}</div>
-                    <span className="asistencia-nombre">{p.nombre}</span>
-                    <div className="asistencia-toggle">
-                      <button
-                        className={`toggle-btn${asistencia[p.id] ? ' toggle-btn--asistio' : ''}`}
-                        onClick={() => toggleAsistencia(p.id, true)}
-                      >Asistió</button>
-                      <button
-                        className={`toggle-btn${!asistencia[p.id] ? ' toggle-btn--ausente' : ''}`}
-                        onClick={() => toggleAsistencia(p.id, false)}
-                      >No asistió</button>
-                    </div>
-                  </li>
-                ))}
+                {cargandoDatos ? (
+                  <li className="asistencia-cargando">Cargando participantes…</li>
+                ) : estudiantes.length === 0 ? (
+                  <li className="asistencia-cargando">No hay participantes disponibles.</li>
+                ) : estudiantes.map(p => {
+                  const nombre   = [p.firstName, p.lastName].filter(Boolean).join(' ') || `Estudiante ${p.childId}`
+                  const iniciales = nombre.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
+                  return (
+                    <li key={p.childId} className="asistencia-item">
+                      <div className="asistencia-avatar">{iniciales}</div>
+                      <span className="asistencia-nombre">{nombre}</span>
+                      <div className="asistencia-toggle">
+                        <button
+                          className={`toggle-btn${asistencia[p.childId] ? ' toggle-btn--asistio' : ''}`}
+                          onClick={() => toggleAsistencia(p.childId, true)}
+                        >Asistió</button>
+                        <button
+                          className={`toggle-btn${!asistencia[p.childId] ? ' toggle-btn--ausente' : ''}`}
+                          onClick={() => toggleAsistencia(p.childId, false)}
+                        >No asistió</button>
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
 
@@ -409,8 +509,8 @@ const Talleres = () => {
               <p className="resumen__sub">
                 {total - presentes} {total - presentes === 1 ? 'ausente' : 'ausentes'} · {pctAsistencia}% de asistencia
               </p>
-              <button className="btn-publicar" onClick={() => setFase(3)}>
-                Guardar y continuar a valoraciones
+              <button className="btn-publicar" onClick={guardarAsistencia} disabled={guardandoAsistencia}>
+                {guardandoAsistencia ? 'Registrando…' : 'Guardar y continuar a valoraciones'}
               </button>
             </aside>
           </>
@@ -420,22 +520,24 @@ const Talleres = () => {
           <>
             {/* Sidebar participantes */}
             <aside className="val-sidebar">
-              <p className="val-sidebar__titulo">PARTICIPANTES · {PARTICIPANTES.length}</p>
+              <p className="val-sidebar__titulo">PARTICIPANTES · {estudiantes.length}</p>
               <ul className="val-sidebar__lista" role="list">
-                {PARTICIPANTES.map(p => {
-                  const activo = p.id === participanteActivo
+                {estudiantes.map(p => {
+                  const nombre   = [p.firstName, p.lastName].filter(Boolean).join(' ') || `Estudiante ${p.childId}`
+                  const iniciales = nombre.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
+                  const activo = p.childId === participanteActivo
                   return (
-                    <li key={p.id}>
+                    <li key={p.childId}>
                       <button
                         className={`val-participante${activo ? ' val-participante--activo' : ''}`}
-                        onClick={() => setParticipanteActivo(p.id)}
+                        onClick={() => setParticipanteActivo(p.childId)}
                       >
                         <div className={`val-participante__avatar${activo ? ' val-participante__avatar--activo' : ''}`}>
-                          {p.iniciales}
+                          {iniciales}
                         </div>
                         <div className="val-participante__info">
-                          <p className="val-participante__nombre">{p.nombre}</p>
-                          <p className="val-participante__estado">{statusParticipante(p.id)}</p>
+                          <p className="val-participante__nombre">{nombre}</p>
+                          <p className="val-participante__estado">{statusParticipante(p.childId)}</p>
                         </div>
                       </button>
                     </li>
@@ -450,44 +552,46 @@ const Talleres = () => {
               {/* Cabecera del participante activo */}
               <div className="val-header">
                 <h2 className="val-header__nombre">
-                  {PARTICIPANTES.find(p => p.id === participanteActivo)?.nombre}
+                  {(() => {
+                    const p = estudiantes.find(e => e.childId === participanteActivo)
+                    return p ? [p.firstName, p.lastName].filter(Boolean).join(' ') : ''
+                  })()}
                 </h2>
                 <div className="val-leyenda">
-                  <span className="val-ley val-ley--i">I · INICIADO</span>
-                  <span className="val-ley val-ley--ep">EP · EN PROCESO</span>
-                  <span className="val-ley val-ley--nr">NR · NECESITA REFUERZO</span>
-                  <span className="val-ley val-ley--l">L · LOGRADO</span>
+                  {escalas.map(esc => (
+                    <span key={esc.id} className="val-ley">{esc.code} · {esc.name.toUpperCase()}</span>
+                  ))}
                 </div>
               </div>
 
               {/* Dimensiones */}
-              {DIMENSIONES.map((dim, di) => {
-                const logrados = dim.indicadores.filter((_, ii) =>
-                  getVal(participanteActivo, di, ii) === 'L'
-                ).length
+              {dimensionesReales.length === 0 ? (
+                <p className="talleres-estado">Este taller no tiene habilidades configuradas.</p>
+              ) : dimensionesReales.map((dim, di) => {
+                const valoradas = dim.habilidades.filter(h => getVal(participanteActivo, h.id)).length
                 return (
                   <div key={di} className="val-dimension">
                     <div className="val-dimension__header">
                       <h3 className="val-dimension__titulo">{dim.nombre}</h3>
                       <span className="val-dimension__logrados">
-                        {logrados} de {dim.indicadores.length} logrados
+                        {valoradas} de {dim.habilidades.length} valoradas
                       </span>
                     </div>
-                    {dim.indicadores.map((ind, ii) => {
-                      const v = getVal(participanteActivo, di, ii)
+                    {dim.habilidades.map(h => {
+                      const v = getVal(participanteActivo, h.id)
                       return (
-                        <div key={ii} className="val-indicador">
-                          <p className="val-indicador__texto">{ind}</p>
+                        <div key={h.id} className="val-indicador">
+                          <p className="val-indicador__texto">{h.nombre}</p>
                           <div className="val-botones">
-                            {['I', 'EP', 'NR', 'L'].map(opt => (
+                            {escalas.map(esc => (
                               <button
-                                key={opt}
-                                className={`val-btn val-btn--${opt.toLowerCase()}${v === opt ? ' val-btn--sel' : ''}`}
-                                onClick={() => setVal(participanteActivo, di, ii, v === opt ? null : opt)}
-                                aria-label={opt}
-                                aria-pressed={v === opt}
+                                key={esc.id}
+                                className={`val-btn${v === esc.id ? ' val-btn--sel' : ''}`}
+                                onClick={() => setVal(participanteActivo, h.id, v === esc.id ? null : esc.id)}
+                                aria-label={esc.name}
+                                aria-pressed={v === esc.id}
                               >
-                                {opt}
+                                {esc.code}
                               </button>
                             ))}
                           </div>

@@ -102,9 +102,12 @@
   justify-content: center;
   flex-shrink: 0;
 }
-.cert-icono--entregado { background: var(--color-teal-light);   color: var(--color-primary); }
+.cert-icono--entregado,
+.cert-icono--valid     { background: var(--color-teal-light);   color: var(--color-primary); }
 .cert-icono--firmado   { background: #E8F1F7;                    color: var(--color-blue);    }
-.cert-icono--borrador  { background: var(--color-accent-light);  color: var(--color-accent);  }
+.cert-icono--borrador,
+.cert-icono--pending   { background: var(--color-accent-light);  color: var(--color-accent);  }
+.cert-icono--revoked   { background: #FDECEA;                    color: #d32f2f;              }
 
 .cert-fila__nombre {
   font-size: var(--fs-sm);
@@ -140,9 +143,12 @@
   padding: 0.2rem 0.65rem;
   white-space: nowrap;
 }
-.cert-estado--entregado { background: var(--color-teal-light);  color: var(--color-primary); border-color: var(--color-primary); }
+.cert-estado--entregado,
+.cert-estado--valid     { background: var(--color-teal-light);  color: var(--color-primary); border-color: var(--color-primary); }
 .cert-estado--firmado   { background: #E8F1F7;                   color: var(--color-blue);    border-color: var(--color-blue);    }
-.cert-estado--borrador  { background: var(--color-accent-light); color: var(--color-accent);  border-color: var(--color-accent);  }
+.cert-estado--borrador,
+.cert-estado--pending   { background: var(--color-accent-light); color: var(--color-accent);  border-color: var(--color-accent);  }
+.cert-estado--revoked   { background: #FDECEA;                   color: #d32f2f;              border-color: #d32f2f;              }
 
 /* Action cell */
 .cert-fila__accion { text-align: right; }
@@ -468,6 +474,16 @@
   background: #F0F1EF;
   border-radius: 7px;
   padding: 0.5rem 0.75rem;
+}
+
+/* ── Error message ───────────────────────────────────────────────────────── */
+
+.cert-error {
+  font-size: var(--fs-sm);
+  color: #d32f2f;
+  background: #fdecea;
+  border-radius: 7px;
+  padding: 0.5rem 0.85rem;
 }
 
 /* ── Print ───────────────────────────────────────────────────────────────── */
