@@ -52,6 +52,15 @@
   margin-top: 0.25rem;
 }
 
+.joven-error {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #FDECEA;
+  color: #8C2B22;
+  font-size: 0.85rem;
+}
+
 /* ── Música — hero card ───────────────────────────────────────────────────── */
 
 .joven-musica-card {
@@ -221,11 +230,28 @@
   margin-top: 0.3rem;
 }
 
-.joven-estrellas {
+.joven-calificaciones {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  justify-content: flex-end;
+  gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.joven-calificacion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  border: 1px solid #D1E5E0;
+  border-radius: 10px;
+  background: #F0F7F5;
+  color: #176D65;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.78rem;
+}
+
+.joven-calificacion span {
+  color: #687974;
 }
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */

@@ -154,6 +154,22 @@
   filter: brightness(0.97);
 }
 
+.ll-item--calificacion {
+  justify-content: space-between;
+  gap: 1rem;
+  background: #E2F2EF;
+  color: #10574F;
+}
+
+.ll-calificacion {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #FFFFFF;
+  color: #176D65;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.82rem;
+}
+
 /* Logrado — fondo teal claro */
 .ll-item--logrado {
   background: #E2F2EF;

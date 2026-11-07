@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getStudentEvidences } from '../../services/evidences.js'
+import CompartirModal from '../../components/CompartirModal/CompartirModal.jsx'
 import './MisVideos.css'
 
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
@@ -41,6 +42,13 @@ const ExternalLinkIcon = () => (
   </svg>
 )
 
+const SendIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <line x1="22" y1="2" x2="11" y2="13"/>
+    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+  </svg>
+)
+
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
 const CARD_COLORS = ['#176D65','#3D9387','#2E9B56','#F49A18','#3477A9','#9B6B2E']
@@ -53,6 +61,7 @@ const MisVideos = () => {
   const [evidencias,     setEvidencias]     = useState([])
   const [cargando,       setCargando]       = useState(true)
   const [selectedVideo,  setSelectedVideo]  = useState(null)
+  const [mostrarCompartir, setMostrarCompartir] = useState(false)
 
   useEffect(() => {
     const studentId = import.meta.env.VITE_STUDENT_ID || '1'
@@ -94,15 +103,24 @@ const MisVideos = () => {
             </div>
             <h2 className="mv-player__title">{selectedVideo.title}</h2>
             <p className="mv-player__sub">Evidencia multimedia</p>
-            <a
-              href={selectedVideo.url}
-              target="_blank"
-              rel="noreferrer"
-              className="mv-player__link"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.75rem', color: '#fff', fontSize: '0.85rem', textDecoration: 'underline' }}
-            >
-              <ExternalLinkIcon /> Abrir enlace
-            </a>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.75rem' }}>
+              <a
+                href={selectedVideo.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mv-player__link"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#fff', fontSize: '0.85rem', textDecoration: 'underline' }}
+              >
+                <ExternalLinkIcon /> Abrir enlace
+              </a>
+              <button
+                type="button"
+                onClick={() => setMostrarCompartir(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: '#25D366', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '0.85rem', padding: '0.4rem 0.85rem', cursor: 'pointer', fontWeight: 600 }}
+              >
+                <SendIcon /> Compartir con familiar
+              </button>
+            </div>
           </div>
         </section>
       )}
@@ -142,6 +160,18 @@ const MisVideos = () => {
           )}
         </section>
       )}
+
+      {/* Modal compartir evidencia */}
+      <CompartirModal
+        isOpen={mostrarCompartir && Boolean(selectedVideo)}
+        onClose={() => setMostrarCompartir(false)}
+        title={selectedVideo ? `Compartir: ${selectedVideo.title}` : 'Compartir video'}
+        tag="EVIDENCIA MULTIMEDIA · SON UP"
+        childId={selectedVideo?.studentId}
+        resourceUrl={selectedVideo?.url || ''}
+        defaultSubject={selectedVideo ? `Video de clase: ${selectedVideo.title}` : 'Video de clase'}
+        defaultMessage={selectedVideo ? `Hola familia,\n\n¡Miren el video "${selectedVideo.title}" de mi clase en Son Up!\n\nPueden verlo en este enlace:\n${selectedVideo.url}\n\n¡Espero que les guste mucho!` : ''}
+      />
 
       {/* Footer */}
       <footer className="mv-footer">

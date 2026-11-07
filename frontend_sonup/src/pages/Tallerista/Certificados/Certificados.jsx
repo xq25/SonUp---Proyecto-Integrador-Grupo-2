@@ -3,6 +3,7 @@ import { getWorkshops } from '../../../services/workshops.js'
 import { getWorkshopAttendances } from '../../../services/attendances.js'
 import { createCredential, getStudentCredentials } from '../../../services/credentials.js'
 import { getChildren } from '../../../services/children.js'
+import CompartirModal from '../../../components/CompartirModal/CompartirModal.jsx'
 import './Certificados.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -15,6 +16,11 @@ const MedalIcon = ({ size = 20 }) => (
 const DownloadIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+)
+const SendIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
   </svg>
 )
 const XIcon = () => (
@@ -43,6 +49,7 @@ const Certificados = () => {
   const [certEnviar,    setCertEnviar]    = useState(null)
   const [guardando,     setGuardando]     = useState(false)
   const [errorGuardar,  setErrorGuardar]  = useState('')
+
   const [form, setForm] = useState({
     studentId:   '',
     nombre:      '',
@@ -64,7 +71,7 @@ const Certificados = () => {
     const load = async () => {
       try {
         const [kids, ws] = await Promise.all([
-          getChildren(),
+          getChildren().catch(() => []),
           getWorkshops(evaluatorId ? { evaluatorId } : {}),
         ])
         setNiños(kids)
@@ -126,6 +133,13 @@ const Certificados = () => {
 
   const descargar = () => {
     if (detalle?.url) window.open(detalle.url, '_blank', 'noreferrer')
+  }
+
+  /* Abrir modal de envío */
+  const abrirEnviar = (cert) => {
+    setCertEnviar(cert)
+    setDetalle(null)
+    setMostrarEnviar(true)
   }
 
   return (
@@ -224,7 +238,7 @@ const Certificados = () => {
                 Por su participación activa en <strong>{detalle.organizationName}</strong>.
               </p>
               <p className="cert-preview__pie">
-                Fundacion Asisco · {detalle.createdAt ? formatFecha(detalle.createdAt) : '—'}
+                Fundación Asisco · {detalle.createdAt ? formatFecha(detalle.createdAt) : '—'}
               </p>
             </div>
 
@@ -249,15 +263,28 @@ const Certificados = () => {
               </button>
               <button
                 className="btn-enviar"
-                onClick={() => { setCertEnviar(detalle); setDetalle(null); setMostrarEnviar(true) }}
+                onClick={() => abrirEnviar(detalle)}
               >
-                Enviar a la familia
+                <SendIcon /> Enviar a la familia
               </button>
             </div>
 
           </div>
         </div>
       )}
+
+      {/* ── Modal compartir / enviar a la familia ── */}
+      <CompartirModal
+        isOpen={mostrarEnviar}
+        onClose={() => setMostrarEnviar(false)}
+        title={certEnviar ? `Certificado: ${certEnviar.organizationName}` : 'Enviar certificado'}
+        tag="RECONOCIMIENTO · SON UP"
+        childId={certEnviar?.studentId}
+        studentName={certEnviar ? nombreEstudiante(certEnviar.studentId) : ''}
+        resourceUrl={certEnviar?.url || ''}
+        defaultSubject={certEnviar ? `Certificado: ${certEnviar.organizationName} — ${nombreEstudiante(certEnviar.studentId)}` : 'Certificado de participación'}
+        defaultMessage={certEnviar ? `Estimada familia,\n\nCompartimos con ustedes el certificado "${certEnviar.organizationName}" correspondiente al estudiante ${nombreEstudiante(certEnviar.studentId)} por su participación y dedicación en el proceso formativo de Son Up.\n\nPueden consultarlo en el siguiente enlace:\n${certEnviar.url ?? '(enlace adjunto)'}\n\nEquipo Son Up · Fundación Asisco` : ''}
+      />
 
       {/* ── Modal crear ── */}
       {mostrarCrear && (
@@ -335,62 +362,6 @@ const Certificados = () => {
                 disabled={!puedeCrear}
               >
                 {guardando ? 'Creando…' : 'Crear certificado'}
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* ── Modal enviar ── */}
-      {mostrarEnviar && (
-        <div className="modal-overlay" onClick={() => setMostrarEnviar(false)} role="dialog" aria-modal="true">
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-
-            <div className="modal-head">
-              <div>
-                <p className="modal-tag">CORREO A LA FAMILIA</p>
-                <h2 className="modal-titulo">Enviar certificado</h2>
-              </div>
-              <button className="modal-close" onClick={() => setMostrarEnviar(false)} aria-label="Cerrar">
-                <XIcon />
-              </button>
-            </div>
-
-            <div className="cert-enviar-campos">
-              <div className="cert-campo">
-                <label className="cert-label">Para</label>
-                <input
-                  type="email"
-                  className="cert-input"
-                  placeholder="correo@ejemplo.com"
-                />
-              </div>
-              <div className="cert-campo">
-                <label className="cert-label">Asunto</label>
-                <input
-                  type="text"
-                  className="cert-input"
-                  defaultValue={`Certificado: ${certEnviar?.organizationName ?? ''} — ${nombreEstudiante(certEnviar?.studentId)}`}
-                />
-              </div>
-              <div className="cert-campo">
-                <label className="cert-label">Mensaje</label>
-                <textarea
-                  className="cert-textarea"
-                  rows={4}
-                  defaultValue={`Estimada familia,\n\nAdjunto encontrarán el certificado "${certEnviar?.organizationName}" correspondiente a ${nombreEstudiante(certEnviar?.studentId)}.\n\nEquipo Son Up`}
-                />
-              </div>
-              <p className="cert-enviar-nota">
-                El certificado se adjuntará automáticamente como PDF al enviar.
-              </p>
-            </div>
-
-            <div className="modal-acciones">
-              <button className="btn-cancelar" onClick={() => setMostrarEnviar(false)}>Cancelar</button>
-              <button className="btn-enviar" disabled>
-                Enviar
               </button>
             </div>
 

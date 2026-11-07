@@ -1,41 +1,38 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getChildren, getChild, getChildGuardians } from '../../../services/children.js'
-import { getStudentCategoryAverages }               from '../../../services/skills.js'
-import { getStudentAttendances }                    from '../../../services/attendances.js'
-import { getWorkshops }                             from '../../../services/workshops.js'
+import { getStudentCategoryAverages } from '../../../services/skills.js'
+import { getStudentAttendances } from '../../../services/attendances.js'
+import { getWorkshops } from '../../../services/workshops.js'
 import Logo from '../../../components/Logo/Logo'
+import CompartirModal from '../../../components/CompartirModal/CompartirModal.jsx'
+import { createShareDocument } from '../../../utils/share-document.js'
 import './Informes.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
 
 const DownloadIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <polyline points="7 10 12 15 17 10"/>
-    <line x1="12" y1="15" x2="12" y2="3"/>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
   </svg>
 )
 const SendIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <line x1="22" y1="2" x2="11" y2="13"/>
-    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+    <line x1="22" y1="2" x2="11" y2="13" />
+    <polygon points="22 2 15 22 11 13 2 9 22 2" />
   </svg>
 )
 const CheckCircleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="12" cy="12" r="11" fill="#176D65"/>
-    <polyline points="6,12 10,16 18,8" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="12" r="11" fill="#176D65" />
+    <polyline points="6,12 10,16 18,8" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
 const PendingCircleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="12" cy="12" r="11" fill="none" stroke="#F49A18" strokeWidth="2"/>
-  </svg>
-)
-const XIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    <circle cx="12" cy="12" r="11" fill="none" stroke="#F49A18" strokeWidth="2" />
   </svg>
 )
 
@@ -52,7 +49,7 @@ const calcularEdad = (birthDate) => {
 }
 
 const semestre = () => (new Date().getMonth() < 6 ? 'primer' : 'segundo')
-const año      = new Date().getFullYear()
+const año = new Date().getFullYear()
 
 const fechaActual = () => {
   const raw = new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -98,24 +95,24 @@ const BarrasProgreso = ({ categorias }) => {
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const Informes = () => {
-  const navigate          = useNavigate()
-  const { childId }       = useParams()
-  const [mostrarEnviar,   setMostrarEnviar]   = useState(false)
+  const navigate = useNavigate()
+  const { childId } = useParams()
+  const [mostrarEnviar, setMostrarEnviar] = useState(false)
 
   /* Selector */
-  const [niños,           setNiños]           = useState([])
+  const [niños, setNiños] = useState([])
 
   /* Datos del participante */
-  const [niño,            setNiño]            = useState(null)
-  const [acudientes,      setAcudientes]      = useState([])
-  const [catAverages,     setCatAverages]     = useState([])
-  const [asistencias,     setAsistencias]     = useState([])
-  const [talleres,        setTalleres]        = useState([])
-  const [cargando,        setCargando]        = useState(false)
+  const [niño, setNiño] = useState(null)
+  const [acudientes, setAcudientes] = useState([])
+  const [catAverages, setCatAverages] = useState([])
+  const [asistencias, setAsistencias] = useState([])
+  const [talleres, setTalleres] = useState([])
+  const [cargando, setCargando] = useState(false)
 
   /* Cargar lista de niños para el selector */
   useEffect(() => {
-    getChildren().then(setNiños).catch(() => {})
+    getChildren().then(setNiños).catch(() => { })
   }, [])
 
   /* Cargar datos del participante cuando cambia childId */
@@ -136,20 +133,20 @@ const Informes = () => {
       getStudentAttendances(childId),
       getWorkshops(evaluatorId ? { evaluatorId } : {}),
     ]).then(([child, guardians, catAvg, asist, ws]) => {
-      if (child.status    === 'fulfilled') setNiño(child.value)
+      if (child.status === 'fulfilled') setNiño(child.value)
       if (guardians.status === 'fulfilled') setAcudientes(guardians.value)
-      if (catAvg.status   === 'fulfilled') setCatAverages(catAvg.value)
-      if (asist.status    === 'fulfilled') setAsistencias(asist.value)
-      if (ws.status       === 'fulfilled') setTalleres(ws.value)
+      if (catAvg.status === 'fulfilled') setCatAverages(catAvg.value)
+      if (asist.status === 'fulfilled') setAsistencias(asist.value)
+      if (ws.status === 'fulfilled') setTalleres(ws.value)
       setCargando(false)
     })
   }, [childId])
 
   /* Derivados */
-  const nombre        = niño ? [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Participante' : '…'
-  const primerNombre  = nombre.split(' ')[0]
-  const edad          = niño?.birthDate ? calcularEdad(niño.birthDate) : null
-  const guardianEmail = acudientes[0]?.email || ''
+  const nombre = niño ? [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Participante' : '…'
+  const primerNombre = nombre.split(' ')[0]
+  const edad = niño?.birthDate ? calcularEdad(niño.birthDate) : null
+  const acudienteActual = acudientes[0]?.guardian ?? acudientes[0] ?? null
 
   const workshopsAsistidos = useMemo(() => {
     const ids = new Set(asistencias.map(a => String(a.workshopId)))
@@ -170,16 +167,53 @@ const Informes = () => {
 
   const checklist = useMemo(() => [
     ...catAverages.map(c => ({
-      label:  `Valoraciones de ${c.categoryName}`,
-      ok:     c.skillCount > 0,
+      label: `Valoraciones de ${c.categoryName}`,
+      ok: c.skillCount > 0,
       estado: c.skillCount > 0 ? 'Completas' : 'Pendiente',
     })),
     { label: 'Revisión del docente', ok: false, estado: 'Pendiente' },
-    { label: 'Firmas',               ok: false, estado: 'Pendiente' },
+    { label: 'Firmas', ok: false, estado: 'Pendiente' },
   ], [catAverages])
 
-  const titulo  = `Informe del ${semestre()} semestre ${año}`
-  const tagDoc  = `INFORME DEL ${semestre().toUpperCase()} SEMESTRE ${año}`
+  const titulo = `Informe del ${semestre()} semestre ${año}`
+  const tagDoc = `INFORME DEL ${semestre().toUpperCase()} SEMESTRE ${año}`
+
+  const defaultMensaje = `Estimada familia,\n\nCompartimos el informe del ${semestre()} semestre ${año} de ${nombre}.\n${workshopsAsistidos.length > 0 ? `Talleres participados: ${talleresStr}\n` : ''}${catAverages.length > 0 ? `Progreso en habilidades: ${catAverages.map(c => `${c.categoryName}: ${c.average.toFixed(1)}/5`).join(', ')}\n` : ''}\nEn él encontrarán un resumen de logros, avances y recomendaciones para el hogar.\n\nEquipo Son Up · Fundación Asisco`
+
+  const reportFile = useMemo(() => {
+    if (!niño) return null
+    return createShareDocument({
+      title: titulo,
+      subtitle: nombre,
+      sections: [
+        {
+          title: 'Información del estudiante',
+          rows: [
+            ['Nombre', nombre],
+            ['Talleres', talleresStr || 'Sin talleres registrados'],
+          ],
+        },
+        {
+          title: 'Progreso por categoría',
+          items: catAverages.map(c =>
+            `${c.categoryName}: promedio ${c.average.toFixed(1)} / 5 (${c.skillCount} habilidades valoradas)`
+          ),
+        },
+        {
+          title: 'Observaciones del tallerista',
+          items: workshopsAsistidos.flatMap(taller =>
+            (asistenciasPorTaller[String(taller.id)] || [])
+              .filter(attendance => attendance.observation)
+              .sort((a, b) => new Date(b.attendedAt) - new Date(a.attendedAt))
+              .slice(0, 2)
+              .map(attendance =>
+                `${taller.name} · ${attendance.observation} (${new Date(attendance.attendedAt).toLocaleDateString('es-CO')})`
+              )
+          ),
+        },
+      ],
+    })
+  }, [niño, titulo, nombre, talleresStr, catAverages, workshopsAsistidos, asistenciasPorTaller])
 
   return (
     <div className="inf-page">
@@ -343,10 +377,10 @@ const Informes = () => {
                 <p className="doc-firma__nombre">Tallerista</p>
                 <p className="doc-firma__rol">Son-Up</p>
               </div>
-              {acudientes[0] && (
+              {acudienteActual && (
                 <div className="doc-firma">
                   <div className="doc-firma__linea" />
-                  <p className="doc-firma__nombre">{acudientes[0].fullName}</p>
+                  <p className="doc-firma__nombre">{acudienteActual.fullName || 'Acudiente'}</p>
                   <p className="doc-firma__rol">Acudiente</p>
                 </div>
               )}
@@ -379,7 +413,7 @@ const Informes = () => {
             <div className="card">
               <h3 className="card-titulo-sm">Quién lo recibe</h3>
               <p className="quien-texto">
-                La familia lo recibe en su cuenta y por correo. La anamnesis y las
+                La familia lo recibe en su cuenta y por correo o WhatsApp. La anamnesis y las
                 notas internas no salen en el informe.
               </p>
             </div>
@@ -389,64 +423,18 @@ const Informes = () => {
         </div>
       )}
 
-      {/* ── Modal enviar ── */}
-      {mostrarEnviar && childId && (
-        <div className="inf-modal-overlay" onClick={() => setMostrarEnviar(false)} role="dialog" aria-modal="true">
-          <div className="inf-modal" onClick={e => e.stopPropagation()}>
-
-            <div className="inf-modal__head">
-              <div>
-                <p className="inf-modal__tag">CORREO A LA FAMILIA</p>
-                <h2 className="inf-modal__titulo">Enviar informe</h2>
-              </div>
-              <button className="inf-modal__close" onClick={() => setMostrarEnviar(false)} aria-label="Cerrar">
-                <XIcon />
-              </button>
-            </div>
-
-            <div className="inf-modal__campos">
-              <div className="inf-modal__campo">
-                <label className="inf-modal__label">Para</label>
-                <input
-                  type="email"
-                  className="inf-modal__input"
-                  defaultValue={guardianEmail}
-                  placeholder="correo@ejemplo.com"
-                />
-              </div>
-              <div className="inf-modal__campo">
-                <label className="inf-modal__label">Asunto</label>
-                <input
-                  type="text"
-                  className="inf-modal__input"
-                  defaultValue={`${titulo} — ${nombre}`}
-                />
-              </div>
-              <div className="inf-modal__campo">
-                <label className="inf-modal__label">Mensaje</label>
-                <textarea
-                  className="inf-modal__textarea"
-                  rows={5}
-                  defaultValue={`Estimada familia,\n\nAdjunto encontrarán el informe del ${semestre()} semestre ${año} de ${nombre}. En él encontrarán un resumen de sus logros, avances y recomendaciones para el hogar.\n\nQuedamos atentos a cualquier pregunta.\n\nEquipo Son Up`}
-                />
-              </div>
-              <p className="inf-modal__nota">
-                El informe se adjuntará automáticamente como PDF al enviar.
-              </p>
-            </div>
-
-            <div className="inf-modal__acciones">
-              <button className="inf-modal__btn-cancelar" onClick={() => setMostrarEnviar(false)}>
-                Cancelar
-              </button>
-              <button className="inf-modal__btn-enviar" disabled>
-                <SendIcon /> Enviar
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
+      {/* ── Modal compartir informe con familiar ── */}
+      <CompartirModal
+        isOpen={mostrarEnviar && Boolean(childId)}
+        onClose={() => setMostrarEnviar(false)}
+        title={`Enviar informe: ${nombre}`}
+        tag="INFORME SEMESTRAL · SON UP"
+        childId={childId}
+        studentName={nombre}
+        attachmentFile={reportFile}
+        defaultSubject={`${titulo} — ${nombre}`}
+        defaultMessage={defaultMensaje}
+      />
 
     </div>
   )

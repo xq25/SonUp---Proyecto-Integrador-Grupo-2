@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getStudentCredentials } from '../../services/credentials.js'
+import CompartirModal from '../../components/CompartirModal/CompartirModal.jsx'
 import './MisCertificados.css'
 
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
@@ -40,6 +41,13 @@ const DownloadIcon = () => (
   </svg>
 )
 
+const SendIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <line x1="22" y1="2" x2="11" y2="13"/>
+    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+  </svg>
+)
+
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
 const ICON_PALETA = [
@@ -62,6 +70,7 @@ const MisCertificados = () => {
   const [certificados, setCertificados] = useState([])
   const [cargando,     setCargando]     = useState(true)
   const [selectedCert, setSelectedCert] = useState(null)
+  const [mostrarCompartir, setMostrarCompartir] = useState(false)
 
   useEffect(() => {
     const studentId = import.meta.env.VITE_STUDENT_ID || '1'
@@ -121,17 +130,28 @@ const MisCertificados = () => {
             </div>
           </article>
 
-          {selectedCert.url && (
-            <a
-              href={selectedCert.url}
-              target="_blank"
-              rel="noreferrer"
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
+            {selectedCert.url && (
+              <a
+                href={selectedCert.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mcert-download-btn"
+              >
+                <DownloadIcon />
+                <span>Ver certificado</span>
+              </a>
+            )}
+            <button
+              type="button"
               className="mcert-download-btn"
+              style={{ background: '#25D366', color: '#fff' }}
+              onClick={() => setMostrarCompartir(true)}
             >
-              <DownloadIcon />
-              <span>Ver certificado</span>
-            </a>
-          )}
+              <SendIcon />
+              <span>Compartir con familiar</span>
+            </button>
+          </div>
         </section>
       ) : (
         /* Vista lista */
@@ -180,6 +200,18 @@ const MisCertificados = () => {
           )}
         </section>
       )}
+
+      {/* Modal compartir certificado */}
+      <CompartirModal
+        isOpen={mostrarCompartir && Boolean(selectedCert)}
+        onClose={() => setMostrarCompartir(false)}
+        title={selectedCert ? `Certificado: ${selectedCert.organizationName}` : 'Compartir certificado'}
+        tag="RECONOCIMIENTO · SON UP"
+        childId={selectedCert?.studentId}
+        resourceUrl={selectedCert?.url || ''}
+        defaultSubject={selectedCert ? `¡Obtuve un certificado! ${selectedCert.organizationName}` : 'Mi certificado Son Up'}
+        defaultMessage={selectedCert ? `Hola familia,\n\n¡Miren el certificado "${selectedCert.organizationName}" que obtuve en Son Up!\n\nPueden verlo aquí:\n${selectedCert.url ?? '(enlace adjunto)'}\n\n¡Estoy muy feliz de compartirlo con ustedes!` : ''}
+      />
 
       {/* Footer */}
       <footer className="mcert-footer">

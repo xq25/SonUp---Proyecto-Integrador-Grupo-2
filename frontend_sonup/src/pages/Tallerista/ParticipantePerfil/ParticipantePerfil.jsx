@@ -6,6 +6,8 @@ import { getStudentCredentials }                 from '../../../services/credent
 import { getStudentEvidences }                   from '../../../services/evidences.js'
 import { getStudentAttendances }                 from '../../../services/attendances.js'
 import { getWorkshops }                          from '../../../services/workshops.js'
+import CompartirModal                            from '../../../components/CompartirModal/CompartirModal.jsx'
+import { createShareDocument } from '../../../utils/share-document.js'
 import './ParticipantePerfil.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -45,6 +47,13 @@ const FileTextIcon = () => (
     <line x1="16" y1="13" x2="8" y2="13" />
     <line x1="16" y1="17" x2="8" y2="17" />
     <polyline points="10 9 9 9 8 9" />
+  </svg>
+)
+
+const SendIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <line x1="22" y1="2" x2="11" y2="13" />
+    <polygon points="22 2 15 22 11 13 2 9 22 2" />
   </svg>
 )
 
@@ -94,6 +103,17 @@ const ParticipantePerfil = () => {
   const [talleresMapa,    setTalleresMapa]    = useState({})
   const [cargando,        setCargando]        = useState(true)
 
+  /* Estado del modal compartir */
+  const [modalCompartir, setModalCompartir] = useState({
+    isOpen: false,
+    title: '',
+    tag: '',
+    defaultSubject: '',
+    defaultMessage: '',
+    resourceUrl: '',
+    attachmentFile: null,
+  })
+
   useEffect(() => {
     if (!childId) return
     const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
@@ -134,7 +154,7 @@ const ParticipantePerfil = () => {
   const nombre   = niño ? [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Participante' : '…'
   const edad     = niño?.birthDate ? calcularEdad(niño.birthDate) : null
   const iniciales = niño ? initiales(niño.firstName, niño.lastName) : '?'
-  const acudiente = acudientes[0] ?? null
+  const acudienteObj = acudientes[0]?.guardian ?? acudientes[0] ?? null
 
   const progresoPct = useMemo(() => {
     if (!catAverages.length) return 0
@@ -221,10 +241,46 @@ const ParticipantePerfil = () => {
               <span className="perfil-nivel">{niño.notes.slice(0, 60)}{niño.notes.length > 60 ? '…' : ''}</span>
             )}
 
-            {acudiente && (
+            {acudienteObj && (
               <div className="perfil-acudiente">
                 <span className="perfil-acudiente__label">Acudiente</span>
-                <p className="perfil-acudiente__nombre">{acudiente.fullName ?? '—'}</p>
+                <p className="perfil-acudiente__nombre">{acudienteObj.fullName ?? '—'}</p>
+                {acudienteObj.phone && (
+                  <p className="perfil-acudiente__dato">📞 {acudienteObj.phone}</p>
+                )}
+                <button
+                  type="button"
+                  className="btn-compartir-familiar-perfil"
+                  onClick={() =>
+                    setModalCompartir({
+                      isOpen: true,
+                      title: `Informe de seguimiento de ${nombre}`,
+                      tag: 'INFORME · SON UP',
+                      defaultSubject: `Informe de seguimiento de ${nombre} — Son Up`,
+                      defaultMessage: `Estimada familia,\n\nAdjuntamos el informe de seguimiento de ${nombre}, con el progreso registrado y las observaciones recientes.\n\nEquipo Son Up · Fundación Asisco`,
+                      attachmentFile: createShareDocument({
+                        title: `Informe de seguimiento de ${nombre}`,
+                        subtitle: edad !== null ? `${nombre} · ${edad} años` : nombre,
+                        sections: [
+                          {
+                            title: 'Progreso por categoría',
+                            items: catAverages.map(category =>
+                              `${category.categoryName}: promedio ${category.average.toFixed(1)} / 5 (${category.skillCount} habilidades valoradas)`
+                            ),
+                          },
+                          {
+                            title: 'Seguimiento reciente',
+                            items: seguimiento.map(item =>
+                              `${item.fecha} · ${item.tag}: ${item.texto}`
+                            ),
+                          },
+                        ],
+                      }),
+                    })
+                  }
+                >
+                  <SendIcon /> Compartir con familiar
+                </button>
               </div>
             )}
           </div>
@@ -356,6 +412,24 @@ const ParticipantePerfil = () => {
                         <DownloadIcon />
                       </a>
                     )}
+                    <button
+                      type="button"
+                      className="cert-accion-btn"
+                      onClick={() =>
+                        setModalCompartir({
+                          isOpen: true,
+                          title: `Certificado: ${c.organizationName}`,
+                          tag: 'CERTIFICADO · SON UP',
+                          defaultSubject: `Certificado de ${nombre}: ${c.organizationName}`,
+                          defaultMessage: `Estimada familia,\n\nCompartimos el certificado "${c.organizationName}" otorgado a ${nombre} en Son Up.\n\nPueden consultarlo en: ${c.url || '(enlace adjunto)'}\n\nEquipo Son Up · Fundación Asisco`,
+                          resourceUrl: c.url || '',
+                        })
+                      }
+                      title="Compartir certificado con familiar"
+                      aria-label="Compartir certificado con familiar"
+                    >
+                      <SendIcon />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -376,9 +450,27 @@ const ParticipantePerfil = () => {
                       </p>
                     </div>
                     <button
+                      type="button"
+                      className="cert-accion-btn"
+                      onClick={() =>
+                        setModalCompartir({
+                          isOpen: true,
+                          title: `Evidencia: ${e.title}`,
+                          tag: 'EVIDENCIA · SON UP',
+                          defaultSubject: `Evidencia de clase: ${e.title} — ${nombre}`,
+                          defaultMessage: `Estimada familia,\n\nCompartimos la evidencia "${e.title}" del proceso formativo de ${nombre} en Son Up.\n\nPueden verla en el enlace que acompaña este mensaje.\n\nEquipo Son Up · Fundación Asisco`,
+                          resourceUrl: e.url || '',
+                        })
+                      }
+                      title="Compartir evidencia con familiar"
+                      aria-label="Compartir evidencia con familiar"
+                    >
+                      <SendIcon />
+                    </button>
+                    <button
                       className="cert-accion-btn"
                       onClick={() => navigate('/tallerista/evidencias')}
-                      aria-label="Ver evidencia"
+                      aria-label="Ver evidencia en módulo"
                     >
                       <ChevronRightIcon />
                     </button>
@@ -444,6 +536,21 @@ const ParticipantePerfil = () => {
       </div>
 
       )}
+
+      {/* ── Modal compartir con familiar ── */}
+      <CompartirModal
+        isOpen={modalCompartir.isOpen}
+        onClose={() => setModalCompartir(prev => ({ ...prev, isOpen: false }))}
+        title={modalCompartir.title}
+        tag={modalCompartir.tag}
+        childId={childId}
+        studentName={nombre}
+        defaultSubject={modalCompartir.defaultSubject}
+        defaultMessage={modalCompartir.defaultMessage}
+        resourceUrl={modalCompartir.resourceUrl}
+        attachmentFile={modalCompartir.attachmentFile}
+      />
+
     </div>
   )
 }

@@ -5,6 +5,8 @@ import { getStudentCategoryAverages } from '../../services/skills.js'
 import { getStudentAttendances } from '../../services/attendances.js'
 import { getStudentCredentials } from '../../services/credentials.js'
 import { getWorkshops } from '../../services/workshops.js'
+import CompartirModal from '../../components/CompartirModal/CompartirModal.jsx'
+import { createShareDocument, escapeHtml } from '../../utils/share-document.js'
 import './AcudienteInforme.css'
 
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
@@ -19,6 +21,12 @@ const DownloadIcon = () => (
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
     <polyline points="7 10 12 15 17 10"/>
     <line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+)
+const SendIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <line x1="22" y1="2" x2="11" y2="13"/>
+    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
   </svg>
 )
 
@@ -41,6 +49,7 @@ const AcudienteInforme = () => {
   const [talleresMapa,setTalleresMapa]= useState({})
   const [credencial,  setCredencial]  = useState(null)
   const [cargando,    setCargando]    = useState(true)
+  const [mostrarCompartir, setMostrarCompartir] = useState(false)
 
   useEffect(() => {
     const studentId = import.meta.env.VITE_STUDENT_ID || '1'
@@ -99,13 +108,34 @@ const AcudienteInforme = () => {
     [asistencias, talleresMapa]
   )
 
-  const handleDownloadPDF = () => {
-    /* Si hay credencial con URL, abrirla directamente */
-    if (credencial?.url) {
-      window.open(credencial.url, '_blank', 'noreferrer')
-      return
-    }
+  const reportFile = useMemo(() => {
+    if (!niño) return null
+    return createShareDocument({
+      title: `Informe del ${semestre()} semestre ${año()}`,
+      subtitle: nombre,
+      sections: [
+        {
+          title: 'Información del estudiante',
+          rows: [
+            ['Nombre', nombre],
+            ['Talleres', workshopNombres.join(', ') || 'Sin talleres registrados'],
+          ],
+        },
+        {
+          title: 'Progreso por categoría',
+          items: catAverages.map(c =>
+            `${c.categoryName}: promedio ${c.average.toFixed(1)} / 5 (${c.skillCount} habilidades valoradas)`
+          ),
+        },
+        {
+          title: 'Observaciones del tallerista',
+          items: observaciones.map(o => `${o.texto} (${o.taller} · ${o.fecha})`),
+        },
+      ],
+    })
+  }, [niño, nombre, workshopNombres, catAverages, observaciones])
 
+  const handleDownloadPDF = () => {
     /* Generar PDF con datos reales */
     const printWindow = window.open('', '_blank')
     if (!printWindow) {
@@ -114,11 +144,11 @@ const AcudienteInforme = () => {
     }
 
     const categoriasHtml = catAverages.map(c =>
-      `<li><strong>${c.categoryName}</strong>: promedio ${c.average.toFixed(1)} / 5 (${c.skillCount} habilidad${c.skillCount !== 1 ? 'es' : ''})</li>`
+      `<li><strong>${escapeHtml(c.categoryName)}</strong>: promedio ${c.average.toFixed(1)} / 5 (${c.skillCount} habilidad${c.skillCount !== 1 ? 'es' : ''})</li>`
     ).join('')
 
     const obsHtml = observaciones.map(o =>
-      `<li>${o.texto} <em>(${o.taller} · ${o.fecha})</em></li>`
+      `<li>${escapeHtml(o.texto)} <em>(${escapeHtml(o.taller)} · ${escapeHtml(o.fecha)})</em></li>`
     ).join('')
 
     printWindow.document.write(`
@@ -149,7 +179,7 @@ const AcudienteInforme = () => {
           <p class="logo-text"><span class="logo-orange">asis</span><span class="logo-teal">co</span></p>
           <p class="tagline">Asociación de Interés Social Comunitario</p>
           <h1 class="doc-title">Informe del ${semestre()} semestre ${año()}</h1>
-          <p class="meta"><strong>Estudiante:</strong> ${nombre} | <strong>Talleres:</strong> ${workshopNombres.join(', ') || 'Sin talleres'}</p>
+          <p class="meta"><strong>Estudiante:</strong> ${escapeHtml(nombre)} | <strong>Talleres:</strong> ${escapeHtml(workshopNombres.join(', ') || 'Sin talleres')}</p>
         </div>
 
         ${catAverages.length > 0 ? `
@@ -166,7 +196,7 @@ const AcudienteInforme = () => {
 
         <div class="footer">
           <span>Fundación Asisco · Proyecto SonUp</span>
-          <span>${credencial?.createdAt ? `Firmado el ${formatFecha(credencial.createdAt)}` : new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          <span>${credencial?.createdAt ? `Firmado el ${escapeHtml(formatFecha(credencial.createdAt))}` : new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
         </div>
         <script>window.onload = function(){ window.print(); };</script>
       </body>
@@ -261,13 +291,38 @@ const AcudienteInforme = () => {
             )}
           </div>
 
-          {/* Botón descargar */}
-          <button className="ai-descargar-btn" onClick={handleDownloadPDF} aria-label="Descargar informe en PDF">
-            <DownloadIcon />
-            <span>{credencial?.url ? 'Ver certificado' : 'Descargar PDF'}</span>
-          </button>
+          {/* Botones de acción */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginTop: '1.25rem' }}>
+            <button className="ai-descargar-btn" onClick={handleDownloadPDF} aria-label="Descargar informe en PDF">
+              <DownloadIcon />
+              <span>Descargar PDF</span>
+            </button>
+            <button
+              type="button"
+              className="ai-descargar-btn"
+              style={{ background: '#25D366' }}
+              onClick={() => setMostrarCompartir(true)}
+              aria-label="Compartir informe con familiar"
+            >
+              <SendIcon />
+              <span>Compartir con familiar</span>
+            </button>
+          </div>
         </article>
       </main>
+
+      {/* ── Modal compartir informe ── */}
+      <CompartirModal
+        isOpen={mostrarCompartir}
+        onClose={() => setMostrarCompartir(false)}
+        title={`Informe de ${nombre}`}
+        tag="INFORME SEMESTRAL · ASISCO"
+        childId={niño?.id}
+        studentName={nombre}
+        attachmentFile={reportFile}
+        defaultSubject={`Informe del ${semestre()} semestre ${año()} — ${nombre}`}
+        defaultMessage={`Hola,\n\nTe comparto el informe del ${semestre()} semestre ${año()} de ${nombre} en Son Up. Incluye el progreso por categoría, los talleres y las observaciones registradas.\n\n¡Conoce sus avances en la Fundación Asisco!`}
+      />
 
       {/* Footer */}
       <footer className="ai-footer">

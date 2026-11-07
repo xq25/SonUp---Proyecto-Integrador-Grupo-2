@@ -5,6 +5,8 @@ import { getChildren }                      from '../../../services/children.js'
 import { createAttendance }                 from '../../../services/attendances.js'
 import { createEvaluation, getEvaluationScales } from '../../../services/evaluations.js'
 import { getSkills, getSkillCategories }    from '../../../services/skills.js'
+import CompartirModal                       from '../../../components/CompartirModal/CompartirModal.jsx'
+import { createShareDocument }              from '../../../utils/share-document.js'
 import './Talleres.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -22,10 +24,6 @@ const UploadIcon = () => (
   </svg>
 )
 
-/* ─── Mock data ──────────────────────────────────────────────────────────── */
-
-const TALLERES_OPTS = ['Música · Jóvenes', 'Artes · Jóvenes', 'Panadería · Jóvenes']
-
 const FASES = [
   { n: 1, label: 'Publicación del taller'    },
   { n: 2, label: 'Toma de asistencia'        },
@@ -36,6 +34,32 @@ const TITULOS = {
   1: { h: 'Publicación del taller',     sub: 'Define el tema, los objetivos y la actividad que desarrollarás.' },
   2: { h: 'Toma de asistencia',         sub: 'Registra quiénes participaron en la sesión publicada.' },
   3: { h: 'Valoraciones y evidencias',  sub: 'Valora los logros y adjunta evidencias de la actividad.' },
+}
+
+const toBogotaDateInput = (value) => {
+  if (!value) return ''
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date(value)).map(part => [part.type, part.value])
+  )
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
+const toBogotaTimeInput = (value) => {
+  if (!value) return ''
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'America/Bogota',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(new Date(value)).map(part => [part.type, part.value])
+  )
+  return `${parts.hour}:${parts.minute}`
 }
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
@@ -54,19 +78,14 @@ const Talleres = () => {
 
   /* Fase 1 */
   const [sesion, setSesion] = useState({
-    taller:     'Música · Jóvenes',
-    fecha:      '2026-10-10',
-    horaInicio: '10:00',
-    horaFin:    '11:00',
-    tema:       'Ritmo con palmas y tambor',
-    objetivo:   'Seguir un pulso estable con palmas y tambor, primero en grupo y luego por turnos.',
-    pasos: [
-      'Saludo cantado y preparación del salón',
-      'Ritmo con palmas: lento, rápido y pausa',
-      'Tambores por turnos siguiendo la canción',
-      'Cierre y organización de los instrumentos',
-    ],
-    materiales: ['Tambor', 'Panderetas', 'Parlante', 'Hojas con figuras musicales'],
+    taller: '',
+    fecha: '',
+    horaInicio: '',
+    horaFin: '',
+    tema: '',
+    objetivo: '',
+    pasos: [],
+    materiales: [],
   })
 
   /* Datos reales */
@@ -75,7 +94,10 @@ const Talleres = () => {
   const [escalas,            setEscalas]            = useState([])
   const [asistenciasIds,     setAsistenciasIds]     = useState({})
   const [cargandoDatos,      setCargandoDatos]      = useState(false)
+  const [errorDatosTaller,   setErrorDatosTaller]   = useState('')
   const [guardandoAsistencia, setGuardandoAsistencia] = useState(false)
+  const [mostrarCompartirSesion, setMostrarCompartirSesion] = useState(false)
+  const [archivoResumenSesion, setArchivoResumenSesion] = useState(null)
 
   /* Fase 2 */
   const [asistencia, setAsistencia] = useState({})
@@ -97,9 +119,19 @@ const Talleres = () => {
 
   const cargarDatosTaller = async (taller) => {
     setTallerActivo(taller)
-    setSesion(s => ({ ...s, taller: taller.name }))
+    setSesion({
+      taller: taller.name,
+      fecha: toBogotaDateInput(taller.startsAt),
+      horaInicio: toBogotaTimeInput(taller.startsAt),
+      horaFin: toBogotaTimeInput(taller.endsAt),
+      tema: '',
+      objetivo: '',
+      pasos: [],
+      materiales: [],
+    })
     setVista('form')
     setCargandoDatos(true)
+    setErrorDatosTaller('')
     try {
       const [kids, workshopSkills, allSkills, categorias, escs] = await Promise.all([
         getChildren(),
@@ -116,11 +148,12 @@ const Talleres = () => {
       })
       setHabilidadesTaller(habs)
       setEscalas([...escs].sort((a, b) => a.numValue - b.numValue))
-      setEstudiantes(kids)
-      setAsistencia(Object.fromEntries(kids.map(k => [k.childId, true])))
-      setParticipanteActivo(kids[0]?.childId ?? null)
-    } catch {
-      // Si falla la carga, el formulario queda vacío
+      const normalizedKids = kids.map(k => ({ ...k, childId: String(k.id ?? k.childId) }))
+      setEstudiantes(normalizedKids)
+      setAsistencia(Object.fromEntries(normalizedKids.map(k => [k.childId, true])))
+      setParticipanteActivo(normalizedKids[0]?.childId ?? null)
+    } catch (error) {
+      setErrorDatosTaller(`No se pudieron cargar los datos del taller: ${error.message}`)
     } finally {
       setCargandoDatos(false)
     }
@@ -187,6 +220,12 @@ const Talleres = () => {
       })
     : '—'
   const [tallerNombre, tallerGrupo = ''] = sesion.taller.split(' · ')
+  const familyRecipients = estudiantes
+    .filter(student => asistenciasIds[student.childId])
+    .map(student => ({
+      id: student.childId,
+      name: [student.firstName, student.lastName].filter(Boolean).join(' ') || `Estudiante ${student.childId}`,
+    }))
 
   /* Fase 3 helpers */
   const dimensionesReales = (() => {
@@ -335,10 +374,38 @@ const Talleres = () => {
         </div>
         {fase === 3 && (
           <div className="talleres-header__acciones">
-            <button className="btn-finalizar">Finalizar sesión</button>
+            <button
+              className="btn-finalizar"
+              onClick={() => {
+                const titulo = `Resumen de clase: ${sesion.tema || tallerActivo?.name || 'Taller'}`
+                setArchivoResumenSesion(createShareDocument({
+                  title: titulo,
+                  subtitle: `${tallerActivo?.name || sesion.taller} · ${fechaDisplay}`,
+                  sections: [
+                    {
+                      title: 'Datos de la sesión',
+                      rows: [
+                        ['Taller', tallerActivo?.name || sesion.taller],
+                        ['Fecha', fechaDisplay],
+                        ['Tema', sesion.tema || 'Sin tema registrado'],
+                      ],
+                      paragraphs: [sesion.objetivo || 'Sin objetivo registrado'],
+                    },
+                    { title: 'Actividades realizadas', items: sesion.pasos },
+                    { title: 'Materiales', items: sesion.materiales },
+                  ],
+                }))
+                setMostrarCompartirSesion(true)
+              }}
+            >
+              Compartir con familias
+            </button>
           </div>
         )}
       </header>
+      {errorDatosTaller && (
+        <p className="talleres-estado talleres-estado--error" role="alert">{errorDatosTaller}</p>
+      )}
 
       {/* ── Stepper ── */}
       <Stepper />
@@ -361,10 +428,7 @@ const Talleres = () => {
               <div className="form-fila-4">
                 <div className="form-campo">
                   <label className="form-label">Taller</label>
-                  <select className="form-select" value={sesion.taller}
-                    onChange={e => setSesion(s => ({ ...s, taller: e.target.value }))}>
-                    {TALLERES_OPTS.map(t => <option key={t}>{t}</option>)}
-                  </select>
+                  <input className="form-input" value={tallerActivo?.name || sesion.taller} readOnly />
                 </div>
                 <div className="form-campo">
                   <label className="form-label">Fecha</label>
@@ -675,6 +739,21 @@ const Talleres = () => {
         )}
 
       </div>
+
+      {/* ── Modal compartir resumen con familias ── */}
+      <CompartirModal
+        isOpen={mostrarCompartirSesion}
+        onClose={() => setMostrarCompartirSesion(false)}
+        title={`Resumen de clase: ${sesion.tema || tallerActivo?.name}`}
+        tag="TALLER · SON UP"
+        childId={familyRecipients[0]?.id}
+        studentName={familyRecipients[0]?.name}
+        recipientOptions={familyRecipients}
+        attachmentFile={archivoResumenSesion}
+        defaultSubject={`Resumen de la clase: ${sesion.tema || tallerActivo?.name}`}
+        defaultMessage={`Estimadas familias,\n\nCompartimos el resumen de la sesión del taller "${tallerActivo?.name || sesion.taller}" realizada el ${fechaDisplay}:\n\nTema: ${sesion.tema}\nObjetivo: ${sesion.objetivo}\nActividades desarrolladas:\n${sesion.pasos.map((p, idx) => `${idx + 1}. ${p}`).join('\n')}\n\n¡Gracias por su constante apoyo al proceso formativo!\n\nEquipo Son Up · Fundación Asisco`}
+      />
+
     </div>
   )
 }

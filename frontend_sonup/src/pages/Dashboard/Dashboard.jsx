@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import Logo from '../../components/Logo/Logo'
 import { getChild } from '../../services/children.js'
 import { getStudentAttendances } from '../../services/attendances.js'
-import { getStudentCategoryAverages } from '../../services/skills.js'
+import { getStudentSkills } from '../../services/skills.js'
+import { getEvaluationScales } from '../../services/evaluations.js'
 import { getWorkshops } from '../../services/workshops.js'
 import './Dashboard.css'
 
@@ -27,12 +28,6 @@ const MusicIcon = () => (
 
 const StarIcon = () => (
   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-  </svg>
-)
-
-const StarFillIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="#F49A18" stroke="#F49A18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
   </svg>
 )
@@ -68,8 +63,6 @@ const ChevronLeftIcon = () => (
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
-const MAX_ESTRELLAS = 10
-
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const Dashboard = () => {
@@ -77,40 +70,47 @@ const Dashboard = () => {
 
   const [niño,         setNiño]         = useState(null)
   const [proximaClase, setProximaClase] = useState(null)
-  const [logros,       setLogros]       = useState(0)
+  const [calificaciones, setCalificaciones] = useState([])
   const [tallereNombre, setTallerNombre] = useState('')
   const [cargando,     setCargando]     = useState(true)
+  const [errorCarga,   setErrorCarga]   = useState('')
 
   useEffect(() => {
     const studentId = import.meta.env.VITE_STUDENT_ID || '1'
     const load = async () => {
       try {
-        const [childRes, asistRes, catRes, wsRes] = await Promise.allSettled([
+        const [child, attendances, studentSkills, scales, workshops] = await Promise.all([
           getChild(studentId),
           getStudentAttendances(studentId),
-          getStudentCategoryAverages(studentId),
+          getStudentSkills(studentId),
+          getEvaluationScales({ activeOnly: false }),
           getWorkshops({}),
         ])
 
-        if (childRes.status === 'fulfilled') setNiño(childRes.value)
+        setNiño(child)
 
-        const totalSkills = catRes.status === 'fulfilled'
-          ? catRes.value.reduce((s, c) => s + c.skillCount, 0)
-          : 0
-        setLogros(totalSkills)
+        const scaleNames = new Map(
+          scales.map(scale => [String(scale.id), scale.name])
+        )
+        const countsByGrade = new Map()
+        studentSkills.forEach(skill => {
+          const grade = scaleNames.get(String(skill.evaluationScaleId))
+          if (!grade) throw new Error(`No se encontró la escala de la calificación ${skill.evaluationScaleId}.`)
+          countsByGrade.set(grade, (countsByGrade.get(grade) ?? 0) + 1)
+        })
+        setCalificaciones([...countsByGrade].map(([name, count]) => ({ name, count })))
 
         const attendedIds = new Set(
-          asistRes.status === 'fulfilled'
-            ? asistRes.value.map(a => String(a.workshopId))
-            : []
+          attendances.map(a => String(a.workshopId))
         )
-        const allWs = wsRes.status === 'fulfilled' ? wsRes.value : []
-        const activo = allWs.find(w => w.status === 'active' && attendedIds.has(String(w.id)))
-        const cualquiera = activo ?? allWs.find(w => attendedIds.has(String(w.id))) ?? null
+        const activo = workshops.find(w => w.status === 'active' && attendedIds.has(String(w.id)))
+        const cualquiera = activo ?? workshops.find(w => attendedIds.has(String(w.id))) ?? null
         setProximaClase(cualquiera)
         setTallerNombre(cualquiera?.name ?? '')
 
-      } catch {}
+      } catch (error) {
+        setErrorCarga(`No se pudo cargar el progreso del estudiante: ${error.message}`)
+      }
       finally { setCargando(false) }
     }
     load()
@@ -119,8 +119,6 @@ const Dashboard = () => {
   const nombre = niño
     ? (niño.firstName || [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Joven')
     : 'Joven'
-
-  const estrellasCount = Math.min(logros, MAX_ESTRELLAS)
 
   const MODULOS = [
     { id: 'logros',       label: 'Lo que logré',    icon: <StarIcon />,     variante: 'accent',   ruta: '/joven/lo-que-logre'    },
@@ -145,9 +143,10 @@ const Dashboard = () => {
         <h1 className="joven-saludo__titulo">¡Hola, {nombre}!</h1>
         <p className="joven-saludo__sub">¿Qué quieres ver hoy?</p>
       </div>
+      {errorCarga && <p className="joven-error" role="alert">{errorCarga}</p>}
 
       {/* Hero — próxima clase */}
-      {!cargando && (
+      {!cargando && !errorCarga && (
         <button
           className="joven-musica-card"
           aria-label={proximaClase ? `Ir a ${proximaClase.name}` : 'Mis clases'}
@@ -185,18 +184,23 @@ const Dashboard = () => {
       </div>
 
       {/* Card de logros */}
-      {!cargando && logros > 0 && (
+      {!cargando && (
         <div className="joven-logros-card">
           <div className="joven-logros-card__info">
             <h2 className="joven-logros-card__titulo">
-              {tallereNombre ? `En ${tallereNombre} este semestre` : 'Este semestre'}
+              {tallereNombre ? `Calificaciones · ${tallereNombre}` : 'Mis calificaciones'}
             </h2>
-            <p className="joven-logros-card__sub">{logros} cosas que ya lograste</p>
+            <p className="joven-logros-card__sub">Estado de tus habilidades, según la escala registrada</p>
           </div>
-          <div className="joven-estrellas" aria-label={`${estrellasCount} estrellas`}>
-            {Array.from({ length: estrellasCount }).map((_, i) => (
-              <StarFillIcon key={i} />
-            ))}
+          <div className="joven-calificaciones" aria-label="Calificaciones por escala">
+            {calificaciones.length ? calificaciones.map(({ name, count }) => (
+              <span className="joven-calificacion" key={name}>
+                <strong>{name}</strong>
+                <span>{count} habilidad{count === 1 ? '' : 'es'}</span>
+              </span>
+            )) : (
+              <span className="joven-logros-card__sub">Aún no tienes calificaciones registradas.</span>
+            )}
           </div>
         </div>
       )}

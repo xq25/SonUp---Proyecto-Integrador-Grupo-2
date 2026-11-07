@@ -704,3 +704,25 @@
     padding: 0.8rem 1rem;
   }
 }
+
+.btn-compartir-familiar-perfil {
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  width: 100%;
+  margin-top: 0.65rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: background 0.18s;
+}
+.btn-compartir-familiar-perfil:hover {
+  background: var(--color-primary-dark);
+}

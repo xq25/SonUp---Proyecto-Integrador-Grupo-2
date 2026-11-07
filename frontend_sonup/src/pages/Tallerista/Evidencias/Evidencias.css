@@ -475,6 +475,45 @@
   background: var(--color-bg);
 }
 
+.evid-student-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-white);
+  color: var(--color-text-dark);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.evid-student-toggle:hover,
+.evid-student-toggle:focus-visible {
+  border-color: var(--color-primary);
+}
+
+.evid-student-dropdown {
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.65rem;
+  background: var(--color-white);
+}
+
+.evid-student-search {
+  margin-bottom: 0.5rem;
+}
+
+.evid-student-results {
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .evid-student-item {
   display: flex;
   align-items: center;
@@ -482,13 +521,59 @@
   font-size: var(--fs-sm);
   color: var(--color-text-dark);
   cursor: pointer;
-  padding: 0.2rem 0;
+  padding: 0.45rem 0.2rem;
+  border-bottom: 1px solid var(--color-border);
 }
+
+.evid-student-item:last-child { border-bottom: 0; }
+
 .evid-student-item input[type='checkbox'] {
   accent-color: var(--color-primary);
   width: 15px;
   height: 15px;
   flex-shrink: 0;
+}
+
+.evid-student-item__details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.evid-student-item__documento {
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+}
+
+.evid-student-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.evid-student-selected li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  background: var(--color-teal-light);
+  color: var(--color-text-dark);
+  font-size: var(--fs-xs);
+  padding: 0.25rem 0.55rem 0.25rem 0.75rem;
+}
+
+.evid-student-selected button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .evid-hint {

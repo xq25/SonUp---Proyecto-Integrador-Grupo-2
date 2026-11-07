@@ -8,7 +8,16 @@ const headers = () => {
 }
 
 const handleResponse = async (r) => {
-  if (!r.ok) throw new Error(String(r.status))
+  if (!r.ok) {
+    // Try to parse error body for EXTERNAL_SERVICE codes
+    let errMsg = String(r.status)
+    try {
+      const body = await r.json()
+      if (body?.error?.message) errMsg = body.error.message
+      else if (body?.error?.code) errMsg = body.error.code
+    } catch { /* ignore parse error */ }
+    throw new Error(errMsg)
+  }
   if (r.status === 204) return null
   return r.json()
 }

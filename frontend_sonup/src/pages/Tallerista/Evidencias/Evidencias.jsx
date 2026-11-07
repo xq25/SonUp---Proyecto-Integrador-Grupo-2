@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { getWorkshops } from '../../../services/workshops.js'
 import { getWorkshopAttendances } from '../../../services/attendances.js'
-import { createEvidence, getStudentEvidences } from '../../../services/evidences.js'
+import { createEvidence, getStudentEvidences, getEvidenceStudents } from '../../../services/evidences.js'
 import { getChildren } from '../../../services/children.js'
+import CompartirModal from '../../../components/CompartirModal/CompartirModal.jsx'
 import './Evidencias.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -15,6 +16,11 @@ const VideoIcon = ({ size = 22 }) => (
 const DownloadIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+)
+const SendIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
   </svg>
 )
 const XIcon = () => (
@@ -40,15 +46,25 @@ const formatFecha = (iso) =>
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const Evidencias = () => {
-  const [evidencias,    setEvidencias]    = useState([])
-  const [cargando,      setCargando]      = useState(true)
-  const [detalle,       setDetalle]       = useState(null)
-  const [mostrarCrear,  setMostrarCrear]  = useState(false)
-  const [niños,         setNiños]         = useState([])
-  const [form,          setForm]          = useState({ url: '', titulo: '' })
-  const [seleccionados, setSeleccionados] = useState([])
-  const [guardando,     setGuardando]     = useState(false)
-  const [errorGuardar,  setErrorGuardar]  = useState('')
+  const [evidencias,       setEvidencias]       = useState([])
+  const [cargando,         setCargando]         = useState(true)
+  const [detalle,          setDetalle]          = useState(null)
+  const [mostrarCrear,     setMostrarCrear]     = useState(false)
+  const [mostrarCompartir, setMostrarCompartir] = useState(false)
+  const [evidCompartir,    setEvidCompartir]    = useState(null)
+  const [shareChildId,     setShareChildId]     = useState(null)
+  const [shareStudentName, setShareStudentName] = useState('')
+  const [shareRecipients,  setShareRecipients]  = useState([])
+  const [shareError,       setShareError]       = useState('')
+  const [niños,            setNiños]            = useState([])
+  const [busquedaEstudiante, setBusquedaEstudiante] = useState('')
+  const [selectorAbierto,  setSelectorAbierto]  = useState(false)
+  const [cargandoEstudiantes, setCargandoEstudiantes] = useState(false)
+  const [errorEstudiantes, setErrorEstudiantes] = useState('')
+  const [form,             setForm]             = useState({ url: '', titulo: '' })
+  const [seleccionados,    setSeleccionados]    = useState([])
+  const [guardando,        setGuardando]        = useState(false)
+  const [errorGuardar,     setErrorGuardar]     = useState('')
 
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
@@ -57,7 +73,12 @@ const Evidencias = () => {
     const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
     const load = async () => {
       try {
-        const talleres = await getWorkshops(evaluatorId ? { evaluatorId } : {})
+        const [talleres, kids] = await Promise.all([
+          getWorkshops(evaluatorId ? { evaluatorId } : {}),
+          getChildren(),
+        ])
+        setNiños(kids)
+
         const asistRes = await Promise.allSettled(
           talleres.map(t => getWorkshopAttendances(t.id))
         )
@@ -73,7 +94,9 @@ const Evidencias = () => {
           if (r.status === 'fulfilled') r.value.forEach(e => map.set(String(e.id), e))
         })
         setEvidencias([...map.values()])
-      } catch {}
+      } catch (error) {
+        setErrorEstudiantes(`No se pudieron cargar los datos: ${error.message}`)
+      }
       finally { setCargando(false) }
     }
     load()
@@ -83,7 +106,15 @@ const Evidencias = () => {
   const abrirCrear = async () => {
     setMostrarCrear(true)
     if (niños.length === 0) {
-      try { setNiños(await getChildren()) } catch {}
+      setCargandoEstudiantes(true)
+      setErrorEstudiantes('')
+      try {
+        setNiños(await getChildren())
+      } catch (error) {
+        setErrorEstudiantes(`No se pudieron cargar los estudiantes: ${error.message}`)
+      } finally {
+        setCargandoEstudiantes(false)
+      }
     }
   }
 
@@ -91,6 +122,8 @@ const Evidencias = () => {
     setMostrarCrear(false)
     setForm({ url: '', titulo: '' })
     setSeleccionados([])
+    setBusquedaEstudiante('')
+    setSelectorAbierto(false)
     setErrorGuardar('')
   }
 
@@ -98,6 +131,28 @@ const Evidencias = () => {
     setSeleccionados(prev =>
       prev.includes(childId) ? prev.filter(id => id !== childId) : [...prev, childId]
     )
+
+  const normalizeSearch = (value) =>
+    String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+
+  const estudiantesFiltrados = useMemo(() => {
+    const query = normalizeSearch(busquedaEstudiante)
+    if (!query) return niños
+    return niños.filter((n) => {
+      const name = [n.firstName, n.lastName].filter(Boolean).join(' ')
+      return normalizeSearch(name).includes(query) ||
+        normalizeSearch(n.documentNumber).includes(query)
+    })
+  }, [niños, busquedaEstudiante])
+
+  const estudiantesSeleccionados = useMemo(
+    () => niños.filter(n => seleccionados.includes(String(n.id))),
+    [niños, seleccionados],
+  )
 
   const guardarEvidencia = async () => {
     if (!form.titulo.trim() || !form.url.trim() || seleccionados.length === 0) return
@@ -124,6 +179,41 @@ const Evidencias = () => {
     seleccionados.length > 0 &&
     !guardando
 
+  /* Abrir modal de compartir */
+  const abrirCompartir = async (evid) => {
+    setEvidCompartir(evid)
+    setDetalle(null)
+    setShareError('')
+
+    // Intenta obtener los estudiantes vinculados a la evidencia
+    let targetChildId = null
+    let targetStudentName = ''
+    let recipients = []
+
+    try {
+      const stList = await getEvidenceStudents(evid.id)
+      recipients = Array.isArray(stList) ? stList.map((student) => {
+        const id = String(student.studentId ?? student.id)
+        const matched = niños.find(k => String(k.id) === id)
+        return {
+          id,
+          name: matched
+            ? [matched.firstName, matched.lastName].filter(Boolean).join(' ') || `Estudiante ${id}`
+            : `Estudiante ${id}`,
+        }
+      }) : []
+      targetChildId = recipients[0]?.id ?? null
+      targetStudentName = recipients[0]?.name ?? ''
+    } catch (error) {
+      setShareError(`No se pudieron consultar los estudiantes de esta evidencia: ${error.message}`)
+    }
+
+    setShareRecipients(recipients)
+    setShareChildId(targetChildId)
+    setShareStudentName(targetStudentName)
+    setMostrarCompartir(true)
+  }
+
   return (
     <div className="evid-page">
 
@@ -137,6 +227,9 @@ const Evidencias = () => {
           + Nuevo
         </button>
       </header>
+      {errorEstudiantes && !mostrarCrear && (
+        <p className="evid-error" role="alert">{errorEstudiantes}</p>
+      )}
 
       {/* ── Grid ── */}
       {cargando ? (
@@ -202,14 +295,29 @@ const Evidencias = () => {
               <a className="btn-descargar-evid" href={detalle.url} target="_blank" rel="noreferrer">
                 <DownloadIcon /> Ver evidencia
               </a>
-              <button className="btn-compartir" onClick={() => setDetalle(null)}>
-                Compartir con la familia
+              <button className="btn-compartir" onClick={() => abrirCompartir(detalle)}>
+                <SendIcon /> Compartir con la familia
               </button>
             </div>
 
           </div>
         </div>
       )}
+
+      {/* ── Modal compartir con familiar ── */}
+      <CompartirModal
+        isOpen={mostrarCompartir}
+        onClose={() => setMostrarCompartir(false)}
+        title={evidCompartir ? `Compartir: ${evidCompartir.title}` : 'Compartir con la familia'}
+        tag="EVIDENCIA · SON UP"
+        childId={shareChildId}
+        studentName={shareStudentName}
+        recipientOptions={shareRecipients}
+        externalError={shareError}
+        resourceUrl={evidCompartir?.url || ''}
+        defaultSubject={evidCompartir ? `Evidencia de clase: ${evidCompartir.title}` : 'Evidencia de clase'}
+        defaultMessage={evidCompartir ? `Estimada familia,\n\nCompartimos con ustedes la evidencia "${evidCompartir.title}" del proceso formativo en Son Up${shareStudentName ? ` de ${shareStudentName}` : ''}.\n\nPueden ver el material en el siguiente enlace:\n${evidCompartir.url}\n\nEquipo Son Up · Fundación Asisco` : ''}
+      />
 
       {/* ── Modal crear ── */}
       {mostrarCrear && (
@@ -248,26 +356,77 @@ const Evidencias = () => {
                   Estudiantes vinculados&nbsp;
                   <span className="evid-hint-count">({seleccionados.length} seleccionados)</span>
                 </label>
-                <div className="evid-student-list">
-                  {niños.length === 0 ? (
-                    <p className="evid-hint">Cargando estudiantes…</p>
-                  ) : niños.map(n => {
-                    const id     = String(n.id)
-                    const nombre = [n.firstName, n.lastName].filter(Boolean).join(' ') || `Estudiante ${id}`
-                    return (
-                      <label key={id} className="evid-student-item">
-                        <input
-                          type="checkbox"
-                          checked={seleccionados.includes(id)}
-                          onChange={() => toggleEstudiante(id)}
-                        />
-                        {nombre}
-                      </label>
-                    )
-                  })}
+                  <button
+                    type="button"
+                    className="evid-student-toggle"
+                    aria-expanded={selectorAbierto}
+                    aria-controls="evid-student-dropdown"
+                    onClick={() => setSelectorAbierto(open => !open)}
+                  >
+                    {seleccionados.length
+                      ? `${seleccionados.length} estudiante${seleccionados.length === 1 ? '' : 's'} seleccionado${seleccionados.length === 1 ? '' : 's'}`
+                      : 'Buscar y seleccionar estudiantes'}
+                    <span aria-hidden="true">{selectorAbierto ? '−' : '+'}</span>
+                  </button>
+                  {selectorAbierto && (
+                    <div className="evid-student-dropdown" id="evid-student-dropdown">
+                      <input
+                        type="search"
+                        className="evid-input evid-student-search"
+                        value={busquedaEstudiante}
+                        onChange={event => setBusquedaEstudiante(event.target.value)}
+                        placeholder="Buscar por nombre o documento"
+                        aria-label="Buscar estudiantes por nombre o documento"
+                        autoComplete="off"
+                      />
+                      {errorEstudiantes && (
+                        <p className="evid-error" role="alert">{errorEstudiantes}</p>
+                      )}
+                      {cargandoEstudiantes ? (
+                        <p className="evid-hint">Cargando estudiantes…</p>
+                      ) : estudiantesFiltrados.length === 0 ? (
+                        <p className="evid-hint">
+                          {niños.length ? 'No hay estudiantes que coincidan con la búsqueda.' : 'No hay estudiantes disponibles.'}
+                        </p>
+                      ) : (
+                        <div className="evid-student-results">
+                          {estudiantesFiltrados.map(n => {
+                            const id = String(n.id)
+                            const nombre = [n.firstName, n.lastName].filter(Boolean).join(' ') || `Estudiante ${id}`
+                            return (
+                              <label key={id} className="evid-student-item">
+                                <input
+                                  type="checkbox"
+                                  checked={seleccionados.includes(id)}
+                                  onChange={() => toggleEstudiante(id)}
+                                />
+                                <span className="evid-student-item__details">
+                                  <span>{nombre}</span>
+                                  <span className="evid-student-item__documento">
+                                    Documento: {n.documentNumber || 'No registrado'}
+                                  </span>
+                                </span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {estudiantesSeleccionados.length > 0 && (
+                    <ul className="evid-student-selected" aria-label="Estudiantes seleccionados">
+                      {estudiantesSeleccionados.map(n => (
+                        <li key={String(n.id)}>
+                          <span>{[n.firstName, n.lastName].filter(Boolean).join(' ') || `Estudiante ${n.id}`}</span>
+                          <button type="button" onClick={() => toggleEstudiante(String(n.id))} aria-label={`Quitar a ${n.firstName || 'estudiante'}`}>
+                            ×
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
-            </div>
 
             {errorGuardar && <p className="evid-error">{errorGuardar}</p>}
 
