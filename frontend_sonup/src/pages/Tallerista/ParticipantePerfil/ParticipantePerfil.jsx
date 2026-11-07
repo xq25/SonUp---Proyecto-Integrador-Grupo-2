@@ -48,6 +48,12 @@ const FileTextIcon = () => (
   </svg>
 )
 
+const ChevronDownIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+)
+
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
 const calcularEdad = (birthDate) => {
@@ -383,21 +389,34 @@ const ParticipantePerfil = () => {
             </div>
           </div>
 
-          {/* Información prioritaria */}
-          {niño?.notes && (
-            <div className="card card--prioritaria">
-              <div className="prioritaria-cuerpo">
-                <div>
-                  <p className="prioritaria-tag">Información prioritaria · Uso interno</p>
-                  <h3 className="prioritaria-titulo">Notas del participante</h3>
-                  <p className="prioritaria-apoyos">{niño.notes}</p>
-                </div>
-                <button className="btn-ver-mas" onClick={() => setVerMas(v => !v)}>
-                  {verMas ? 'Ver menos ↑' : 'Ver más ↓'}
-                </button>
+          {/* Anamnesis */}
+          <div className="card card--prioritaria">
+            <button
+              className="anamnesis-cabecera"
+              onClick={() => setVerMas(v => !v)}
+              aria-expanded={verMas}
+            >
+              <div>
+                <p className="prioritaria-tag">Información prioritaria · Uso interno</p>
+                <h3 className="prioritaria-titulo">Anamnesis</h3>
               </div>
-            </div>
-          )}
+              <span className={`anamnesis-chevron${verMas ? ' anamnesis-chevron--abierto' : ''}`}>
+                <ChevronDownIcon />
+              </span>
+            </button>
+
+            {verMas && (
+              <div className="anamnesis-expandida">
+                {niño?.notes ? (
+                  <p className="anamnesis-dx">{niño.notes}</p>
+                ) : (
+                  <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)' }}>
+                    Sin notas registradas para este participante.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Seguimiento reciente */}
           <div className="card">
