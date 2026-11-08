@@ -1,3 +1,103 @@
+/* ── Gestión árbol de habilidades (admin) ────────────────────────────────── */
+
+.hab-arbol {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.hab-arbol__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1.25rem 1.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.hab-arbol__header:hover {
+  background: var(--color-bg);
+}
+
+.hab-arbol__titulo {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--color-text-dark);
+}
+
+.hab-arbol__sub {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  margin-top: 0.2rem;
+}
+
+.hab-arbol__chevron {
+  font-size: 1.1rem;
+  color: var(--color-text-muted);
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+
+.hab-arbol__chevron--open {
+  transform: rotate(180deg);
+}
+
+.hab-arbol__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.hab-arbol__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hab-arbol__form-titulo {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 0.25rem;
+}
+
+.btn-arbol-crear {
+  align-self: flex-start;
+  padding: 0.5rem 1.25rem;
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-arbol-crear:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
+.btn-arbol-crear:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+  .hab-arbol__body {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Page shell ─────────────────────────────────────────────────────────── */
 
 .hab-page {

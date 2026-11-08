@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { getChildren, getChild, getChildGuardians } from '../../../services/children.js'
 import { getStudentCategoryAverages }            from '../../../services/skills.js'
 import { getStudentCredentials }                 from '../../../services/credentials.js'
@@ -68,7 +68,8 @@ const ChevronDownIcon = () => (
 const calcularEdad = (birthDate) => {
   if (!birthDate) return null
   const today = new Date()
-  const birth = new Date(birthDate)
+  const [y, mo, d] = birthDate.split('T')[0].split('-').map(Number)
+  const birth = new Date(y, mo - 1, d)
   let age = today.getFullYear() - birth.getFullYear()
   const m = today.getMonth() - birth.getMonth()
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
@@ -89,6 +90,8 @@ const formatFechaLarga = (iso) =>
 const ParticipantePerfil = () => {
   const navigate    = useNavigate()
   const { childId } = useParams()
+  const { pathname } = useLocation()
+  const base = pathname.startsWith('/administrador') ? '/administrador' : '/tallerista'
   const [verMas,    setVerMas]    = useState(false)
   const [tabActivo, setTabActivo] = useState(null)
 
@@ -201,7 +204,7 @@ const ParticipantePerfil = () => {
             <select
               className="perfil-selector"
               value={String(childId)}
-              onChange={e => navigate(`/tallerista/participante/${e.target.value}`)}
+              onChange={e => navigate(`${base}/participante/${e.target.value}`)}
               aria-label="Cambiar participante"
             >
               {niños.map(n => (
@@ -211,7 +214,7 @@ const ParticipantePerfil = () => {
               ))}
             </select>
           )}
-          <button className="btn-informe" onClick={() => navigate(`/tallerista/informes/${childId}`)}>
+          <button className="btn-informe" onClick={() => navigate(`${base}/informes/${childId}`)}>
             <FileTextIcon />
             Generar informe
           </button>
@@ -384,7 +387,7 @@ const ParticipantePerfil = () => {
               <div className="card">
                 <div className="cert-cabecera">
                   <h3 className="card-titulo">Certificados</h3>
-                  <button className="btn-ver-todo" onClick={() => navigate('/tallerista/certificados')}>
+                  <button className="btn-ver-todo" onClick={() => navigate(`${base}/certificados`)}>
                     Ver todo
                   </button>
                 </div>
@@ -469,7 +472,7 @@ const ParticipantePerfil = () => {
                     </button>
                     <button
                       className="cert-accion-btn"
-                      onClick={() => navigate('/tallerista/evidencias')}
+                      onClick={() => navigate(`${base}/evidencias`)}
                       aria-label="Ver evidencia en módulo"
                     >
                       <ChevronRightIcon />

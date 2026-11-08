@@ -8,7 +8,9 @@ import MisCertificados      from './pages/Dashboard/MisCertificados'
 import AcudienteHome       from './pages/Acudiente/AcudienteHome'
 import AcudienteInforme    from './pages/Acudiente/AcudienteInforme'
 import TalleristaLayout    from './layouts/TalleristaLayout/TalleristaLayout'
+import AdministradorLayout from './layouts/AdministradorLayout/AdministradorLayout'
 import TalleristaHome      from './pages/Tallerista/TalleristaHome'
+import AdminHome           from './pages/Administrador/AdminHome'
 import ParticipantePerfil  from './pages/Tallerista/ParticipantePerfil/ParticipantePerfil'
 import Informes             from './pages/Tallerista/Informes/Informes'
 import Talleres             from './pages/Tallerista/Talleres/Talleres'
@@ -36,14 +38,26 @@ const App = () => (
 
       {/* Rutas del Tallerista — comparten sidebar */}
       <Route element={<TalleristaLayout />}>
-        <Route path="/tallerista/inicio"       element={<TalleristaHome />} />
+        <Route path="/tallerista/inicio"                element={<TalleristaHome />} />
         <Route path="/tallerista/participante/:childId" element={<ParticipantePerfil />} />
-        <Route path="/tallerista/informes"           element={<Informes />} />
-        <Route path="/tallerista/informes/:childId" element={<Informes />} />
-        <Route path="/tallerista/talleres"     element={<Talleres />} />
-        <Route path="/tallerista/habilidades"   element={<Habilidades />} />
-        <Route path="/tallerista/certificados" element={<Certificados />} />
-        <Route path="/tallerista/evidencias"   element={<Evidencias />} />
+        <Route path="/tallerista/informes"              element={<Informes />} />
+        <Route path="/tallerista/informes/:childId"     element={<Informes />} />
+        <Route path="/tallerista/talleres"              element={<Talleres />} />
+        <Route path="/tallerista/habilidades"           element={<Habilidades />} />
+        <Route path="/tallerista/certificados"          element={<Certificados />} />
+        <Route path="/tallerista/evidencias"            element={<Evidencias />} />
+      </Route>
+
+      {/* Rutas del Administrador — mismo layout pero ve todo */}
+      <Route element={<AdministradorLayout />}>
+        <Route path="/administrador/inicio"                element={<AdminHome />} />
+        <Route path="/administrador/participante/:childId" element={<ParticipantePerfil />} />
+        <Route path="/administrador/informes"              element={<Informes />} />
+        <Route path="/administrador/informes/:childId"     element={<Informes />} />
+        <Route path="/administrador/talleres"              element={<Talleres isAdmin returnPath="/administrador/inicio" />} />
+        <Route path="/administrador/habilidades"           element={<Habilidades isAdmin returnPath="/administrador/talleres" />} />
+        <Route path="/administrador/certificados"          element={<Certificados />} />
+        <Route path="/administrador/evidencias"            element={<Evidencias />} />
       </Route>
     </Routes>
   </BrowserRouter>

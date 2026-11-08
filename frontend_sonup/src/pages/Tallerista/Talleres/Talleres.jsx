@@ -64,7 +64,7 @@ const toBogotaTimeInput = (value) => {
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
-const Talleres = () => {
+const Talleres = ({ isAdmin = false, returnPath = '/tallerista/inicio' }) => {
   const navigate = useNavigate()
   const [fase, setFase] = useState(1)
   const [guardando, setGuardando] = useState(false)
@@ -110,12 +110,12 @@ const Talleres = () => {
   const inputEvidencias = useRef(null)
 
   useEffect(() => {
-    const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
+    const evaluatorId = isAdmin ? undefined : import.meta.env.VITE_EVALUATOR_ID
     getWorkshops(evaluatorId ? { evaluatorId } : {})
       .then(setTalleres)
       .catch(() => setErrorCarga(true))
       .finally(() => setCargando(false))
-  }, [])
+  }, [isAdmin])
 
   const cargarDatosTaller = async (taller) => {
     setTallerActivo(taller)
@@ -268,7 +268,7 @@ const Talleres = () => {
       await Promise.allSettled(promises)
     } finally {
       setGuardando(false)
-      navigate('/tallerista/inicio')
+      navigate(returnPath)
     }
   }
 

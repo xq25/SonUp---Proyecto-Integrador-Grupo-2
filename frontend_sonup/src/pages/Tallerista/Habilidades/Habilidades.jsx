@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getSkillCategories, getSkills } from '../../../services/skills.js'
+import { getSkillCategories, getSkills, createSkillCategory, createSkill } from '../../../services/skills.js'
 import { createWorkshop, addWorkshopSkill } from '../../../services/workshops.js'
+import { getProfessionals } from '../../../services/professionals.js'
 import './Habilidades.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -72,19 +73,20 @@ const catCode = (nombre) => (nombre ?? '').slice(0, 2).toUpperCase()
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
-const Habilidades = () => {
+const Habilidades = ({ isAdmin = false, returnPath = '/tallerista/talleres' }) => {
   const navigate = useNavigate()
 
   /* Stepper */
   const [fase, setFase] = useState(1)
 
   /* Fase 1 */
-  const [modulo,     setModulo]     = useState('Música')
-  const [grupo,      setGrupo]      = useState('Jóvenes · Grupo A')
-  const [nombre,     setNombre]     = useState('')
-  const [objetivo,   setObjetivo]   = useState('')
-  const [fechaInicio, setFechaInicio] = useState('')
-  const [origen,     setOrigen]     = useState('sonup')
+  const [modulo,       setModulo]       = useState('Música')
+  const [grupo,        setGrupo]        = useState('Jóvenes · Grupo A')
+  const [nombre,       setNombre]       = useState('')
+  const [objetivo,     setObjetivo]     = useState('')
+  const [fechaInicio,  setFechaInicio]  = useState('')
+  const [origen,       setOrigen]       = useState('sonup')
+  const [evaluadorSelec, setEvaluadorSelec] = useState('')
 
   /* Fase 2 — selección de habilidades (IDs reales) */
   const [seleccionadas, setSeleccionadas] = useState(new Set())
@@ -98,19 +100,61 @@ const Habilidades = () => {
   const [categorias,    setCategorias]    = useState([])
   const [habilidadesDB, setHabilidadesDB] = useState([])
   const [cargandoHabs,  setCargandoHabs]  = useState(true)
+  const [profesionales, setProfesionales] = useState([])
 
   /* Estado de guardado */
-  const [guardando,     setGuardando]     = useState(false)
-  const [errorGuardar,  setErrorGuardar]  = useState(null)
+  const [guardando,    setGuardando]    = useState(false)
+  const [errorGuardar, setErrorGuardar] = useState(null)
+
+  /* Gestión árbol de habilidades (solo admin) */
+  const [arbolAbierto,  setArbolAbierto]  = useState(false)
+  const [newCatNombre,  setNewCatNombre]  = useState('')
+  const [newCatDesc,    setNewCatDesc]    = useState('')
+  const [creandoCat,    setCreandoCat]    = useState(false)
+  const [catError,      setCatError]      = useState('')
+  const [newSkillCatId, setNewSkillCatId] = useState('')
+  const [newSkillNombre,setNewSkillNombre]= useState('')
+  const [creandoSkill,  setCreandoSkill]  = useState(false)
+  const [skillError,    setSkillError]    = useState('')
 
   useEffect(() => {
-    Promise.allSettled([getSkillCategories(), getSkills()])
-      .then(([cats, skills]) => {
-        if (cats.status   === 'fulfilled') setCategorias(cats.value)
-        if (skills.status === 'fulfilled') setHabilidadesDB(skills.value)
-        setCargandoHabs(false)
-      })
-  }, [])
+    const queries = [getSkillCategories(), getSkills()]
+    if (isAdmin) queries.push(getProfessionals())
+    Promise.allSettled(queries).then(([cats, skills, profs]) => {
+      if (cats.status   === 'fulfilled') setCategorias(cats.value)
+      if (skills.status === 'fulfilled') setHabilidadesDB(skills.value)
+      if (profs && profs.status === 'fulfilled') setProfesionales(profs.value)
+      setCargandoHabs(false)
+    })
+  }, [isAdmin])
+
+  const handleCrearCat = async () => {
+    if (creandoCat) return
+    setCreandoCat(true)
+    setCatError('')
+    try {
+      const cat = await createSkillCategory({ name: newCatNombre.trim(), description: newCatDesc.trim() || undefined })
+      setCategorias(prev => [...prev, cat])
+      setNewCatNombre('')
+      setNewCatDesc('')
+    } catch {
+      setCatError('No se pudo crear la categoría. Verifica que el nombre sea único.')
+    } finally { setCreandoCat(false) }
+  }
+
+  const handleCrearSkill = async () => {
+    if (creandoSkill) return
+    setCreandoSkill(true)
+    setSkillError('')
+    try {
+      const skill = await createSkill({ name: newSkillNombre.trim(), skillCategoryId: newSkillCatId })
+      setHabilidadesDB(prev => [...prev, skill])
+      setNewSkillNombre('')
+      setNewSkillCatId('')
+    } catch {
+      setSkillError('No se pudo crear la habilidad. Verifica que el nombre sea único en esa categoría.')
+    } finally { setCreandoSkill(false) }
+  }
 
   /* Derivados */
   const dimensiones = useMemo(() =>
@@ -155,12 +199,12 @@ const Habilidades = () => {
     setGuardando(true)
     setErrorGuardar(null)
     try {
-      const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
+      const evaluatorId = isAdmin ? evaluadorSelec : import.meta.env.VITE_EVALUATOR_ID
       const body = { evaluatorId, name: nombre.trim() }
       if (fechaInicio) body.startsAt = new Date(fechaInicio + 'T12:00:00').toISOString()
       const taller = await createWorkshop(body)
       await Promise.all([...seleccionadas].map(skillId => addWorkshopSkill(taller.id, skillId)))
-      navigate('/tallerista/talleres')
+      navigate(returnPath)
     } catch {
       setErrorGuardar('No se pudo crear el taller. Verifica los datos e intenta de nuevo.')
       setGuardando(false)
@@ -180,7 +224,7 @@ const Habilidades = () => {
     setErrorGuardar(null)
   }
 
-  const fase1Valida = nombre.trim().length >= 3
+  const fase1Valida = nombre.trim().length >= 3 && (!isAdmin || evaluadorSelec !== '')
 
   return (
     <div className="hab-page">
@@ -210,6 +254,89 @@ const Habilidades = () => {
           </div>
         ))}
       </div>
+
+      {/* ── Gestión del árbol de habilidades (solo admin) ── */}
+      {isAdmin && (
+        <section className="hab-arbol">
+          <button
+            className="hab-arbol__header"
+            onClick={() => setArbolAbierto(a => !a)}
+            aria-expanded={arbolAbierto}
+          >
+            <div>
+              <h2 className="hab-arbol__titulo">Gestionar árbol de habilidades</h2>
+              <p className="hab-arbol__sub">Agrega nuevas categorías o habilidades al sistema</p>
+            </div>
+            <span className={`hab-arbol__chevron${arbolAbierto ? ' hab-arbol__chevron--open' : ''}`}>▾</span>
+          </button>
+
+          {arbolAbierto && (
+            <div className="hab-arbol__body">
+              {/* Nueva categoría */}
+              <div className="hab-arbol__form">
+                <h3 className="hab-arbol__form-titulo">Nueva categoría</h3>
+                <div className="hab-campo">
+                  <label className="hab-label">Nombre <span style={{ color: 'var(--color-primary)' }}>*</span></label>
+                  <input
+                    className="hab-input" value={newCatNombre}
+                    onChange={e => setNewCatNombre(e.target.value)}
+                    placeholder="Ej: Artística"
+                  />
+                </div>
+                <div className="hab-campo">
+                  <label className="hab-label">Descripción</label>
+                  <input
+                    className="hab-input" value={newCatDesc}
+                    onChange={e => setNewCatDesc(e.target.value)}
+                    placeholder="Descripción opcional…"
+                  />
+                </div>
+                {catError && <p className="hab-hint-error">{catError}</p>}
+                <button
+                  className="btn-arbol-crear"
+                  onClick={handleCrearCat}
+                  disabled={creandoCat || newCatNombre.trim().length < 2}
+                >
+                  {creandoCat ? 'Creando…' : 'Crear categoría'}
+                </button>
+              </div>
+
+              {/* Nueva habilidad */}
+              <div className="hab-arbol__form">
+                <h3 className="hab-arbol__form-titulo">Nueva habilidad</h3>
+                <div className="hab-campo">
+                  <label className="hab-label">Categoría <span style={{ color: 'var(--color-primary)' }}>*</span></label>
+                  <select
+                    className="hab-select" value={newSkillCatId}
+                    onChange={e => setNewSkillCatId(e.target.value)}
+                  >
+                    <option value="">— Selecciona una categoría —</option>
+                    {categorias.map(c => (
+                      <option key={String(c.id)} value={String(c.id)}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="hab-campo">
+                  <label className="hab-label">Nombre <span style={{ color: 'var(--color-primary)' }}>*</span></label>
+                  <input
+                    className="hab-input" value={newSkillNombre}
+                    onChange={e => setNewSkillNombre(e.target.value)}
+                    placeholder="Ej: Ritmo y coordinación"
+                  />
+                </div>
+                {skillError && <p className="hab-hint-error">{skillError}</p>}
+                <button
+                  className="btn-arbol-crear"
+                  onClick={handleCrearSkill}
+                  disabled={creandoSkill || !newSkillCatId || newSkillNombre.trim().length < 2}
+                >
+                  {creandoSkill ? 'Creando…' : 'Crear habilidad'}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ── Stepper ── */}
       <div className="hab-stepper" role="list">
@@ -246,6 +373,24 @@ const Habilidades = () => {
                 <span className="hab-enlace">configuración para Aula-Up</span>.
               </p>
             </div>
+
+            {isAdmin && (
+              <div className="hab-campo">
+                <label className="hab-label">Tallerista responsable <span style={{ color: 'var(--color-primary)' }}>*</span></label>
+                <select
+                  className="hab-select"
+                  value={evaluadorSelec}
+                  onChange={e => setEvaluadorSelec(e.target.value)}
+                >
+                  <option value="">— Selecciona un tallerista —</option>
+                  {profesionales.map(p => (
+                    <option key={String(p.id)} value={String(p.id)}>
+                      {(p.fullName ?? [p.firstName, p.lastName].filter(Boolean).join(' ')) || `Tallerista ${p.id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="hab-fila-2">
               <div className="hab-campo">

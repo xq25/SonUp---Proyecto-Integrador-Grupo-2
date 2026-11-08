@@ -31,6 +31,12 @@ const PeopleIcon = () => (
   </svg>
 )
 
+const AdminIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </svg>
+)
+
 const MailIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -98,6 +104,12 @@ const ROLES = [
     description: 'Acompaña el proceso formativo',
     icon: <PeopleIcon />,
   },
+  {
+    id: 'administrador',
+    label: 'Administradora',
+    description: 'Vista global del programa',
+    icon: <AdminIcon />,
+  },
 ]
 
 const FEATURES = [
@@ -122,8 +134,9 @@ const Login = () => {
   const roleLabel = ROLES.find(r => r.id === selectedRole)?.label ?? ''
 
   const getDestino = () => {
-    if (selectedRole === 'tallerista') return '/tallerista/inicio'
-    if (selectedRole === 'acudiente') return '/acudiente'
+    if (selectedRole === 'tallerista')    return '/tallerista/inicio'
+    if (selectedRole === 'acudiente')     return '/acudiente'
+    if (selectedRole === 'administrador') return '/administrador/inicio'
     return '/dashboard'
   }
 

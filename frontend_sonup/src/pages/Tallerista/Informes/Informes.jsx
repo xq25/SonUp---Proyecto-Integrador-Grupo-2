@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { getChildren, getChild, getChildGuardians } from '../../../services/children.js'
 import { getStudentCategoryAverages } from '../../../services/skills.js'
 import { getStudentAttendances } from '../../../services/attendances.js'
@@ -41,7 +41,8 @@ const PendingCircleIcon = () => (
 const calcularEdad = (birthDate) => {
   if (!birthDate) return null
   const today = new Date()
-  const birth = new Date(birthDate)
+  const [y, mo, d] = birthDate.split('T')[0].split('-').map(Number)
+  const birth = new Date(y, mo - 1, d)
   let age = today.getFullYear() - birth.getFullYear()
   const m = today.getMonth() - birth.getMonth()
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
@@ -97,6 +98,8 @@ const BarrasProgreso = ({ categorias }) => {
 const Informes = () => {
   const navigate = useNavigate()
   const { childId } = useParams()
+  const { pathname } = useLocation()
+  const base = pathname.startsWith('/administrador') ? '/administrador' : '/tallerista'
   const [mostrarEnviar, setMostrarEnviar] = useState(false)
 
   /* Selector */
@@ -238,8 +241,8 @@ const Informes = () => {
               value={childId || ''}
               onChange={e => navigate(
                 e.target.value
-                  ? `/tallerista/informes/${e.target.value}`
-                  : '/tallerista/informes'
+                  ? `${base}/informes/${e.target.value}`
+                  : `${base}/informes`
               )}
               aria-label="Seleccionar participante"
             >

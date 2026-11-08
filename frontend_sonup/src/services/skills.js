@@ -13,3 +13,6 @@ export const getSkillCategories = () => api.get('/skill-categories')
 export const getStudentCategoryAverages = (studentId) => api.get(`/students/${studentId}/category-averages`)
 
 export const getStudentSkills = (studentId) => api.get(`/students/${studentId}/skills`)
+
+export const createSkillCategory = (body) => api.post('/skill-categories', body)
+export const createSkill = (body) => api.post('/skills', body)
