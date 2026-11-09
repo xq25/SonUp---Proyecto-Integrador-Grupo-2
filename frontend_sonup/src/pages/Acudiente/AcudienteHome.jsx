@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { getChild } from '../../services/children.js'
 import { getStudentAttendances } from '../../services/attendances.js'
 import { getWorkshops } from '../../services/workshops.js'
@@ -45,6 +46,7 @@ const getColombiaCurrentTime = () =>
 
 const AcudienteHome = () => {
   const navigate = useNavigate()
+  const { session } = useAuth()
 
   const [niño,         setNiño]         = useState(null)
   const [asistencias,  setAsistencias]  = useState([])
@@ -52,13 +54,14 @@ const AcudienteHome = () => {
   const [credencial,   setCredencial]   = useState(null)
   const [cargando,     setCargando]     = useState(true)
 
+  const [errorCarga,       setErrorCarga]        = useState('')
   const [claseIndex,       setClaseIndex]       = useState(0)
   const [confirmado,       setConfirmado]        = useState(false)
   const [mostrarCalendario,setMostrarCalendario] = useState(false)
   const [horaColombia,     setHoraColombia]      = useState(getColombiaCurrentTime())
 
   useEffect(() => {
-    const studentId = import.meta.env.VITE_STUDENT_ID || '1'
+    const studentId = session?.saga?.childIds?.[0]
     const load = async () => {
       try {
         const [childRes, asistRes, wsRes, credRes] = await Promise.allSettled([
@@ -83,11 +86,12 @@ const AcudienteHome = () => {
           const valida = credRes.value.find(c => c.status === 'valid') ?? null
           setCredencial(valida)
         }
-      } catch {}
-      finally { setCargando(false) }
+      } catch (err) {
+        setErrorCarga(err.message || 'No se pudo cargar la información del joven.')
+      } finally { setCargando(false) }
     }
     load()
-  }, [])
+  }, [session?.saga?.childIds])
 
   /* Nombre e iniciales del estudiante */
   const nombre = niño ? (niño.firstName || 'Joven') : 'Joven'
@@ -196,6 +200,12 @@ const AcudienteHome = () => {
           )}
         </div>
       </header>
+
+      {errorCarga && (
+        <p role="alert" style={{ padding: '0.75rem 1rem', margin: '0 0 1rem', background: '#FDF2F2', borderRadius: '8px', color: '#8C2B22', fontSize: '0.875rem' }}>
+          {errorCarga}
+        </p>
+      )}
 
       {/* ── Clases recientes ── */}
       <section className="acu-actividades-card" aria-label="Clases recientes">

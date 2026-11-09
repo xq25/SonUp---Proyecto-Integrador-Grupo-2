@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
 import Login               from './pages/Login/Login'
 import Dashboard           from './pages/Dashboard/Dashboard'
 import MisClases            from './pages/Dashboard/MisClases'
@@ -21,6 +22,7 @@ import './App.css'
 
 const App = () => (
   <BrowserRouter>
+  <AuthProvider>
     <Routes>
       <Route path="/"      element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
@@ -39,6 +41,7 @@ const App = () => (
       {/* Rutas del Tallerista — comparten sidebar */}
       <Route element={<TalleristaLayout />}>
         <Route path="/tallerista/inicio"                element={<TalleristaHome />} />
+        <Route path="/tallerista/participante"           element={<ParticipantePerfil />} />
         <Route path="/tallerista/participante/:childId" element={<ParticipantePerfil />} />
         <Route path="/tallerista/informes"              element={<Informes />} />
         <Route path="/tallerista/informes/:childId"     element={<Informes />} />
@@ -51,6 +54,7 @@ const App = () => (
       {/* Rutas del Administrador — mismo layout pero ve todo */}
       <Route element={<AdministradorLayout />}>
         <Route path="/administrador/inicio"                element={<AdminHome />} />
+        <Route path="/administrador/participante"           element={<ParticipantePerfil />} />
         <Route path="/administrador/participante/:childId" element={<ParticipantePerfil />} />
         <Route path="/administrador/informes"              element={<Informes />} />
         <Route path="/administrador/informes/:childId"     element={<Informes />} />
@@ -60,6 +64,7 @@ const App = () => (
         <Route path="/administrador/evidencias"            element={<Evidencias />} />
       </Route>
     </Routes>
+  </AuthProvider>
   </BrowserRouter>
 )
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { useAuth } from '../../../context/AuthContext'
 import { getChildren, getChild, getChildGuardians } from '../../../services/children.js'
 import { getStudentCategoryAverages } from '../../../services/skills.js'
 import { getStudentAttendances } from '../../../services/attendances.js'
@@ -97,6 +98,7 @@ const BarrasProgreso = ({ categorias }) => {
 
 const Informes = () => {
   const navigate = useNavigate()
+  const { session } = useAuth()
   const { childId } = useParams()
   const { pathname } = useLocation()
   const base = pathname.startsWith('/administrador') ? '/administrador' : '/tallerista'
@@ -128,7 +130,7 @@ const Informes = () => {
     setAsistencias([])
     setTalleres([])
 
-    const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
+    const evaluatorId = session?.saga?.professionalId
     Promise.allSettled([
       getChild(childId),
       getChildGuardians(childId),
@@ -143,7 +145,7 @@ const Informes = () => {
       if (ws.status === 'fulfilled') setTalleres(ws.value)
       setCargando(false)
     })
-  }, [childId])
+  }, [childId, session?.saga?.professionalId])
 
   /* Derivados */
   const nombre = niño ? [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Participante' : '…'

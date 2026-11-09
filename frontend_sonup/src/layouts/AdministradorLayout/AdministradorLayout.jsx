@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import Logo from '../../components/Logo/Logo'
 import '../TalleristaLayout/TalleristaLayout.css'
 
@@ -60,7 +61,7 @@ const XIcon = () => (
 
 const NAV_ITEMS = [
   { id: 'inicio',        label: 'Inicio',              icon: <HomeIcon />,          ruta: '/administrador/inicio'        },
-  { id: 'participantes', label: 'Participantes',        icon: <ParticipantesIcon />, ruta: '/administrador/participante/1' },
+  { id: 'participantes', label: 'Participantes',        icon: <ParticipantesIcon />, ruta: '/administrador/participante'   },
   { id: 'talleres',      label: 'Talleres y sesiones',  icon: <TalleresIcon />,      ruta: '/administrador/talleres'      },
   { id: 'habilidades',   label: 'Habilidades y juegos', icon: <HabilidadesIcon />,   ruta: '/administrador/habilidades'   },
   { id: 'informes',      label: 'Informes',             icon: <InformesIcon />,      ruta: '/administrador/informes'      },
@@ -70,13 +71,23 @@ const NAV_ITEMS = [
 
 /* ─── Layout ─────────────────────────────────────────────────────────────── */
 
+const initials = (name) =>
+  name?.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?'
+
 const AdministradorLayout = () => {
   const navigate    = useNavigate()
   const location    = useLocation()
+  const { session } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  const userName     = session?.user?.username || 'Administrador'
+  const userInitials = initials(userName)
+  const userRole     = session?.user?.roles?.map(r =>
+    ({ TALLERISTA: 'Tallerista', ADMIN: 'Administrador', ESTUDIANTE: 'Estudiante', ACUDIENTE: 'Acudiente' }[r] ?? r)
+  ).join(', ') || 'Administrador'
+
   const isActive = (item) => {
-    if (item.id === 'participantes') return location.pathname.startsWith('/administrador/participante/')
+    if (item.id === 'participantes') return location.pathname.startsWith('/administrador/participante')
     return location.pathname === item.ruta
   }
 
@@ -131,10 +142,10 @@ const AdministradorLayout = () => {
 
         <div className="tl-sidebar__bottom">
           <div className="tl-sidebar__user">
-            <div className="tl-sidebar__avatar" aria-hidden="true">DC</div>
+            <div className="tl-sidebar__avatar" aria-hidden="true">{userInitials}</div>
             <div className="tl-sidebar__user-info">
-              <span className="tl-sidebar__user-name">Doña Consuelo</span>
-              <span className="tl-sidebar__user-role">Administradora · SonUp</span>
+              <span className="tl-sidebar__user-name">{userName}</span>
+              <span className="tl-sidebar__user-role">{userRole}</span>
             </div>
           </div>
           <button

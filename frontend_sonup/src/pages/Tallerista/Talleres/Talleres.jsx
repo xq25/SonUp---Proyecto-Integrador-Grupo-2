@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getWorkshops, getWorkshopSkills } from '../../../services/workshops.js'
+import { useAuth } from '../../../context/AuthContext'
+import { getWorkshops, getWorkshopSkills, createWorkshop } from '../../../services/workshops.js'
 import { getChildren }                      from '../../../services/children.js'
 import { createAttendance }                 from '../../../services/attendances.js'
 import { createEvaluation, getEvaluationScales } from '../../../services/evaluations.js'
@@ -66,6 +67,7 @@ const toBogotaTimeInput = (value) => {
 
 const Talleres = ({ isAdmin = false, returnPath = '/tallerista/inicio' }) => {
   const navigate = useNavigate()
+  const { session } = useAuth()
   const [fase, setFase] = useState(1)
   const [guardando, setGuardando] = useState(false)
 
@@ -102,6 +104,34 @@ const Talleres = ({ isAdmin = false, returnPath = '/tallerista/inicio' }) => {
   /* Fase 2 */
   const [asistencia, setAsistencia] = useState({})
 
+  /* Crear taller */
+  const [mostrarFormNuevo, setMostrarFormNuevo] = useState(false)
+  const [nuevoTaller,      setNuevoTaller]      = useState({ name: '', startsAt: '' })
+  const [creandoTaller,    setCreandoTaller]    = useState(false)
+  const [errorCrear,       setErrorCrear]       = useState('')
+
+  const crearTaller = async (e) => {
+    e.preventDefault()
+    const evaluatorId = session?.saga?.professionalId
+    if (!evaluatorId) { setErrorCrear('No se encontró tu ID de tallerista.'); return }
+    if (!nuevoTaller.name.trim()) { setErrorCrear('El nombre es obligatorio.'); return }
+    setCreandoTaller(true)
+    setErrorCrear('')
+    try {
+      const body = { evaluatorId, name: nuevoTaller.name.trim() }
+      if (nuevoTaller.startsAt) body.startsAt = `${nuevoTaller.startsAt}T00:00:00-05:00`
+      await createWorkshop(body)
+      const updated = await getWorkshops({})
+      setTalleres(updated)
+      setMostrarFormNuevo(false)
+      setNuevoTaller({ name: '', startsAt: '' })
+    } catch (err) {
+      setErrorCrear(err.message)
+    } finally {
+      setCreandoTaller(false)
+    }
+  }
+
   /* Fase 3 */
   const [participanteActivo, setParticipanteActivo] = useState(null)
   const [valoraciones,       setValoraciones]       = useState({})
@@ -110,12 +140,11 @@ const Talleres = ({ isAdmin = false, returnPath = '/tallerista/inicio' }) => {
   const inputEvidencias = useRef(null)
 
   useEffect(() => {
-    const evaluatorId = isAdmin ? undefined : import.meta.env.VITE_EVALUATOR_ID
-    getWorkshops(evaluatorId ? { evaluatorId } : {})
+    getWorkshops({})
       .then(setTalleres)
       .catch(() => setErrorCarga(true))
       .finally(() => setCargando(false))
-  }, [isAdmin])
+  }, [])
 
   const cargarDatosTaller = async (taller) => {
     setTallerActivo(taller)
@@ -318,7 +347,47 @@ const Talleres = ({ isAdmin = false, returnPath = '/tallerista/inicio' }) => {
             <h1 className="talleres-titulo">Mis talleres</h1>
             <p className="talleres-sub">Selecciona un taller activo para registrar una sesión.</p>
           </div>
+          <button
+            className="btn-publicar btn-publicar--sm"
+            onClick={() => { setMostrarFormNuevo(v => !v); setErrorCrear('') }}
+          >
+            {mostrarFormNuevo ? 'Cancelar' : '+ Nuevo taller'}
+          </button>
         </header>
+
+        {mostrarFormNuevo && (
+          <form className="form-nuevo-taller" onSubmit={crearTaller}>
+            <div className="form-fila-4" style={{ gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="form-campo">
+                <label className="form-label">Nombre del taller <span aria-hidden="true">*</span></label>
+                <input
+                  className="form-input"
+                  placeholder="Ej: Ritmo y percusión"
+                  value={nuevoTaller.name}
+                  onChange={e => setNuevoTaller(t => ({ ...t, name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="form-campo">
+                <label className="form-label">Fecha de inicio (opcional)</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={nuevoTaller.startsAt}
+                  onChange={e => setNuevoTaller(t => ({ ...t, startsAt: e.target.value }))}
+                />
+              </div>
+            </div>
+            {errorCrear && (
+              <p role="alert" style={{ color: '#8C2B22', fontSize: '0.85rem', margin: '0.25rem 0' }}>
+                {errorCrear}
+              </p>
+            )}
+            <button type="submit" className="btn-publicar btn-publicar--sm" disabled={creandoTaller}>
+              {creandoTaller ? 'Creando…' : 'Crear taller'}
+            </button>
+          </form>
+        )}
 
         {cargando && <p className="talleres-estado">Cargando talleres…</p>}
         {errorCarga && <p className="talleres-estado talleres-estado--error">No se pudieron cargar los talleres.</p>}

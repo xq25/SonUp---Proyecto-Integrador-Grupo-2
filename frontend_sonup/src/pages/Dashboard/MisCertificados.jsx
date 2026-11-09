@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { getStudentCredentials } from '../../services/credentials.js'
 import CompartirModal from '../../components/CompartirModal/CompartirModal.jsx'
 import './MisCertificados.css'
@@ -67,18 +68,19 @@ const ESTADO_LABEL = { pending: 'Borrador', valid: 'Firmado', revoked: 'Revocado
 
 const MisCertificados = () => {
   const navigate = useNavigate()
+  const { session } = useAuth()
   const [certificados, setCertificados] = useState([])
   const [cargando,     setCargando]     = useState(true)
   const [selectedCert, setSelectedCert] = useState(null)
   const [mostrarCompartir, setMostrarCompartir] = useState(false)
 
   useEffect(() => {
-    const studentId = import.meta.env.VITE_STUDENT_ID || '1'
+    const studentId = session?.saga?.childId
     getStudentCredentials(studentId)
       .then(data => setCertificados(data))
       .catch(() => {})
       .finally(() => setCargando(false))
-  }, [])
+  }, [session?.saga?.childId])
 
   return (
     <div className="mcert-page">

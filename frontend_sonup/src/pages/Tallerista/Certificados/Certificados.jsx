@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../../context/AuthContext'
 import { getWorkshops } from '../../../services/workshops.js'
 import { getWorkshopAttendances } from '../../../services/attendances.js'
 import { createCredential, getStudentCredentials } from '../../../services/credentials.js'
@@ -39,6 +40,7 @@ const formatFecha = (iso) =>
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const Certificados = () => {
+  const { session } = useAuth()
   const [certificados,  setCertificados]  = useState([])
   const [niños,         setNiños]         = useState([])
   const [talleres,      setTalleres]      = useState([])
@@ -67,7 +69,7 @@ const Certificados = () => {
 
   /* Carga inicial: talleres → asistencias → estudiantes → credenciales */
   useEffect(() => {
-    const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
+    const evaluatorId = session?.saga?.professionalId
     const load = async () => {
       try {
         const [kids, ws] = await Promise.all([
@@ -96,7 +98,7 @@ const Certificados = () => {
       finally { setCargando(false) }
     }
     load()
-  }, [])
+  }, [session?.saga?.professionalId])
 
   const cerrarCrear = () => {
     setMostrarCrear(false)

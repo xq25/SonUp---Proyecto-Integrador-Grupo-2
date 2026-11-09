@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { getChild } from '../../services/children.js'
 import { getStudentCategoryAverages } from '../../services/skills.js'
 import { getStudentAttendances } from '../../services/attendances.js'
@@ -42,6 +43,7 @@ const formatFecha = (iso) =>
 
 const AcudienteInforme = () => {
   const navigate = useNavigate()
+  const { session } = useAuth()
 
   const [niño,        setNiño]        = useState(null)
   const [catAverages, setCatAverages] = useState([])
@@ -52,7 +54,7 @@ const AcudienteInforme = () => {
   const [mostrarCompartir, setMostrarCompartir] = useState(false)
 
   useEffect(() => {
-    const studentId = import.meta.env.VITE_STUDENT_ID || '1'
+    const studentId = session?.saga?.childIds?.[0]
     const load = async () => {
       try {
         const [childRes, catRes, asistRes, wsRes, credRes] = await Promise.allSettled([
@@ -83,7 +85,7 @@ const AcudienteInforme = () => {
       finally { setCargando(false) }
     }
     load()
-  }, [])
+  }, [session?.saga?.childIds])
 
   const nombre    = niño ? [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Estudiante' : 'Estudiante'
   const iniciales = niño

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../../context/AuthContext'
 import { getSkillCategories, getSkills, createSkillCategory, createSkill } from '../../../services/skills.js'
 import { createWorkshop, addWorkshopSkill } from '../../../services/workshops.js'
 import { getProfessionals } from '../../../services/professionals.js'
@@ -75,6 +76,7 @@ const catCode = (nombre) => (nombre ?? '').slice(0, 2).toUpperCase()
 
 const Habilidades = ({ isAdmin = false, returnPath = '/tallerista/talleres' }) => {
   const navigate = useNavigate()
+  const { session } = useAuth()
 
   /* Stepper */
   const [fase, setFase] = useState(1)
@@ -199,7 +201,7 @@ const Habilidades = ({ isAdmin = false, returnPath = '/tallerista/talleres' }) =
     setGuardando(true)
     setErrorGuardar(null)
     try {
-      const evaluatorId = isAdmin ? evaluadorSelec : import.meta.env.VITE_EVALUATOR_ID
+      const evaluatorId = isAdmin ? evaluadorSelec : session?.saga?.professionalId
       const body = { evaluatorId, name: nombre.trim() }
       if (fechaInicio) body.startsAt = new Date(fechaInicio + 'T12:00:00').toISOString()
       const taller = await createWorkshop(body)

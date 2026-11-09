@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useAuth } from '../../../context/AuthContext'
 import { getWorkshops } from '../../../services/workshops.js'
 import { getWorkshopAttendances } from '../../../services/attendances.js'
 import { createEvidence, getStudentEvidences, getEvidenceStudents } from '../../../services/evidences.js'
@@ -46,6 +47,7 @@ const formatFecha = (iso) =>
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const Evidencias = () => {
+  const { session } = useAuth()
   const [evidencias,       setEvidencias]       = useState([])
   const [cargando,         setCargando]         = useState(true)
   const [detalle,          setDetalle]          = useState(null)
@@ -70,7 +72,7 @@ const Evidencias = () => {
 
   /* Carga inicial: talleres → asistencias → estudiantes → evidencias */
   useEffect(() => {
-    const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
+    const evaluatorId = session?.saga?.professionalId
     const load = async () => {
       try {
         const [talleres, kids] = await Promise.all([
@@ -100,7 +102,7 @@ const Evidencias = () => {
       finally { setCargando(false) }
     }
     load()
-  }, [])
+  }, [session?.saga?.professionalId])
 
   /* Abrir modal de creación y cargar estudiantes */
   const abrirCrear = async () => {

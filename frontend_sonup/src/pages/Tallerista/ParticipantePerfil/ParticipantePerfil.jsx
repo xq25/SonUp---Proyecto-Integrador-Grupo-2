@@ -117,9 +117,19 @@ const ParticipantePerfil = () => {
     attachmentFile: null,
   })
 
+  /* When no childId in URL, load children list and redirect to the first one */
+  useEffect(() => {
+    if (childId) return
+    getChildren()
+      .then(kids => {
+        if (kids.length > 0) navigate(`${base}/participante/${kids[0].id}`, { replace: true })
+        else setCargando(false)
+      })
+      .catch(() => setCargando(false))
+  }, [childId, base, navigate])
+
   useEffect(() => {
     if (!childId) return
-    const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
     const load = async () => {
       const results = await Promise.allSettled([
         getChild(childId),
@@ -128,7 +138,7 @@ const ParticipantePerfil = () => {
         getStudentCredentials(childId),
         getStudentEvidences(childId),
         getStudentAttendances(childId),
-        getWorkshops(evaluatorId ? { evaluatorId } : {}),
+        getWorkshops({}),
         getChildren(),
       ])
       const [child, guardians, catAvg, creds, evids, asist, ws, allChildren] = results
@@ -179,16 +189,6 @@ const ParticipantePerfil = () => {
       })),
     [asistencias, talleresMapa]
   )
-
-  if (!childId) {
-    return (
-      <div className="perfil-page">
-        <p style={{ padding: '2rem', color: 'var(--color-text-muted)' }}>
-          No se especificó un participante.
-        </p>
-      </div>
-    )
-  }
 
   return (
     <div className="perfil-page">

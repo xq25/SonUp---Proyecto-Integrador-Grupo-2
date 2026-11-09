@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getStudentSkills, getSkillCategories } from '../../services/skills.js'
-import { getSkills } from '../../services/skills.js'
-import { getEvaluationScales } from '../../services/evaluations.js'
+import { useAuth } from '../../context/AuthContext'
+import { getStudentSkills } from '../../services/skills.js'
 import './LoQueLogre.css'
 
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
@@ -25,41 +24,32 @@ const ChevronLeftIcon = () => (
 
 const LoQueLogre = () => {
   const navigate = useNavigate()
-  const [categorias,     setCategorias]     = useState([])
-  const [studentSkills,  setStudentSkills]  = useState([])
-  const [allSkills,      setAllSkills]      = useState([])
-  const [scaleMap,       setScaleMap]       = useState({})
-  const [cargando,       setCargando]       = useState(true)
+  const { session } = useAuth()
+  const [categorias,    setCategorias]    = useState([])
+  const [studentSkills, setStudentSkills] = useState([])
+  const [cargando,      setCargando]      = useState(true)
   const [errorCarga,    setErrorCarga]    = useState('')
-  const [activeTab,      setActiveTab]      = useState('')
+  const [activeTab,     setActiveTab]     = useState('')
 
   useEffect(() => {
-    const studentId = import.meta.env.VITE_STUDENT_ID || '1'
+    const studentId = session?.saga?.childId
     const load = async () => {
       try {
-        const [categoryRows, studentRows, skillRows, scales] = await Promise.all([
-          getSkillCategories(),
-          getStudentSkills(studentId),
-          getSkills(),
-          getEvaluationScales({ activeOnly: false }),
-        ])
+        const rows = await getStudentSkills(studentId)
+        setStudentSkills(rows)
 
-        setStudentSkills(studentRows)
-        setAllSkills(skillRows)
-
-        const smap = {}
-        scales.forEach(s => { smap[String(s.id)] = s.name })
-        setScaleMap(smap)
-
-        const skillCategories = new Map(skillRows.map(skill => [String(skill.id), String(skill.skillCategoryId)]))
-        const ratedCategoryIds = new Set(
-          studentRows
-            .map(skill => skillCategories.get(String(skill.skillId)))
-            .filter(Boolean)
-        )
-        const ratedCategories = categoryRows.filter(category => ratedCategoryIds.has(String(category.id)))
-        setCategorias(ratedCategories)
-        if (ratedCategories.length > 0) setActiveTab(String(ratedCategories[0].id))
+        // Derivar categorías únicas desde los datos embebidos
+        const seenIds = new Set()
+        const cats = []
+        rows.forEach(ss => {
+          const catId = String(ss.skillCategoryId ?? 'sin-cat')
+          if (!seenIds.has(catId)) {
+            seenIds.add(catId)
+            cats.push({ id: catId, name: ss.categoryName ?? catId })
+          }
+        })
+        setCategorias(cats)
+        if (cats.length > 0) setActiveTab(cats[0].id)
 
       } catch (error) {
         setErrorCarga(`No se pudieron cargar tus calificaciones: ${error.message}`)
@@ -67,25 +57,21 @@ const LoQueLogre = () => {
       finally { setCargando(false) }
     }
     load()
-  }, [])
+  }, [session?.saga?.childId])
 
   const porCategoria = useMemo(() => {
-    const skillInfo = {}
-    allSkills.forEach(s => { skillInfo[String(s.id)] = { name: s.name, catId: String(s.skillCategoryId) } })
-
     const result = {}
     studentSkills.forEach(ss => {
-      const info = skillInfo[String(ss.skillId)]
-      if (!info) return
-      if (!result[info.catId]) result[info.catId] = []
-      result[info.catId].push({
+      const catId = String(ss.skillCategoryId ?? 'sin-cat')
+      if (!result[catId]) result[catId] = []
+      result[catId].push({
         skillId: String(ss.skillId),
-        name: info.name,
-        grade: scaleMap[String(ss.evaluationScaleId)] || 'Calificación no disponible',
+        name:    ss.skillName  ?? `Habilidad ${ss.skillId}`,
+        grade:   ss.scale?.name ?? (ss.average != null ? String(ss.average) : '—'),
       })
     })
     return result
-  }, [studentSkills, allSkills, scaleMap])
+  }, [studentSkills])
 
   const habilidades = porCategoria[activeTab] ?? []
 

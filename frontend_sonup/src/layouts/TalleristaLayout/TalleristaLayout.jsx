@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import Logo from '../../components/Logo/Logo'
 import './TalleristaLayout.css'
 
@@ -60,7 +61,7 @@ const XIcon = () => (
 
 const NAV_ITEMS = [
   { id: 'inicio',        label: 'Inicio',             icon: <HomeIcon />,          ruta: '/tallerista/inicio',       enabled: true  },
-  { id: 'participantes', label: 'Participantes',       icon: <ParticipantesIcon />, ruta: '/tallerista/participante/1', enabled: true  },
+  { id: 'participantes', label: 'Participantes',       icon: <ParticipantesIcon />, ruta: '/tallerista/participante',   enabled: true  },
   { id: 'talleres',      label: 'Talleres y sesiones', icon: <TalleresIcon />,      ruta: '/tallerista/talleres',     enabled: true  },
   { id: 'habilidades',   label: 'Habilidades y juegos',icon: <HabilidadesIcon />,   ruta: '/tallerista/habilidades',  enabled: true  },
   { id: 'informes',      label: 'Informes',            icon: <InformesIcon />,      ruta: '/tallerista/informes',     enabled: true  },
@@ -70,10 +71,20 @@ const NAV_ITEMS = [
 
 /* ─── Layout ─────────────────────────────────────────────────────────────── */
 
+const initials = (name) =>
+  name?.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?'
+
 const TalleristaLayout = () => {
   const navigate    = useNavigate()
   const location    = useLocation()
+  const { session } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const userName    = session?.user?.username || 'Tallerista'
+  const userInitials = initials(userName)
+  const userRole    = session?.user?.roles?.map(r =>
+    ({ TALLERISTA: 'Tallerista', ADMIN: 'Administrador', ESTUDIANTE: 'Estudiante', ACUDIENTE: 'Acudiente' }[r] ?? r)
+  ).join(', ') || 'Tallerista'
 
   const handleNav = (item) => {
     if (!item.enabled) return
@@ -120,7 +131,9 @@ const TalleristaLayout = () => {
           <nav>
             <ul className="tl-nav-list" role="list">
               {NAV_ITEMS.map(item => {
-                const isActive = location.pathname === item.ruta
+                const isActive = item.id === 'participantes'
+                  ? location.pathname.startsWith('/tallerista/participante')
+                  : location.pathname === item.ruta
                 return (
                   <li key={item.id}>
                     <button
@@ -146,10 +159,10 @@ const TalleristaLayout = () => {
 
         <div className="tl-sidebar__bottom">
           <div className="tl-sidebar__user">
-            <div className="tl-sidebar__avatar" aria-hidden="true">LR</div>
+            <div className="tl-sidebar__avatar" aria-hidden="true">{userInitials}</div>
             <div className="tl-sidebar__user-info">
-              <span className="tl-sidebar__user-name">Laura Ríos</span>
-              <span className="tl-sidebar__user-role">Tallerista · Música</span>
+              <span className="tl-sidebar__user-name">{userName}</span>
+              <span className="tl-sidebar__user-role">{userRole}</span>
             </div>
           </div>
           <button

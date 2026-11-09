@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { getStudentEvidences } from '../../services/evidences.js'
 import CompartirModal from '../../components/CompartirModal/CompartirModal.jsx'
 import './MisVideos.css'
@@ -58,18 +59,19 @@ const cardColor = (id) => CARD_COLORS[Number(String(id ?? '0').at(-1) ?? 0) % CA
 
 const MisVideos = () => {
   const navigate = useNavigate()
+  const { session } = useAuth()
   const [evidencias,     setEvidencias]     = useState([])
   const [cargando,       setCargando]       = useState(true)
   const [selectedVideo,  setSelectedVideo]  = useState(null)
   const [mostrarCompartir, setMostrarCompartir] = useState(false)
 
   useEffect(() => {
-    const studentId = import.meta.env.VITE_STUDENT_ID || '1'
+    const studentId = session?.saga?.childId
     getStudentEvidences(studentId)
       .then(data => setEvidencias(data))
       .catch(() => {})
       .finally(() => setCargando(false))
-  }, [])
+  }, [session?.saga?.childId])
 
   return (
     <div className="mv-page">

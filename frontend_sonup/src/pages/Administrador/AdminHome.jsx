@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { getWorkshops }             from '../../services/workshops.js'
 import { getWorkshopAttendances }   from '../../services/attendances.js'
 import { getStudentCategoryAverages } from '../../services/skills.js'
@@ -63,6 +64,7 @@ const formatFechaCorta = (iso) =>
 
 const AdminHome = () => {
   const navigate = useNavigate()
+  const { session } = useAuth()
 
   const [talleres,     setTalleres]     = useState([])
   const [tallerMapa,   setTallerMapa]   = useState({})
@@ -191,7 +193,7 @@ const AdminHome = () => {
 
       <header className="tl-header">
         <div>
-          <h1 className="tl-header__greeting">{getGreeting()}, Administradora</h1>
+          <h1 className="tl-header__greeting">{getGreeting()}, {session?.user?.username?.split(' ')?.[0] || 'Administrador'}</h1>
           <p className="tl-header__sub">Vista general de todos los talleres del programa.</p>
         </div>
       </header>

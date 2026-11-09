@@ -1,41 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useGoogleLogin } from '@react-oauth/google'
 import { api } from '../../services/api'
-import Logo     from '../../components/Logo/Logo'
-import RoleCard from '../../components/RoleCard/RoleCard'
+import { useAuth } from '../../context/AuthContext'
+import Logo from '../../components/Logo/Logo'
 import './Login.css'
 
 /* ── SVG Icons ──────────────────────────────────────────────────────────── */
-
-const LayersIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <polygon points="12 2 2 7 12 12 22 7 12 2" />
-    <polyline points="2 17 12 22 22 17" />
-    <polyline points="2 12 12 17 22 12" />
-  </svg>
-)
-
-const StarIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-  </svg>
-)
-
-const PeopleIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-)
-
-const AdminIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-  </svg>
-)
 
 const MailIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -85,60 +55,36 @@ const ShieldIcon = () => (
 
 /* ── Static data ────────────────────────────────────────────────────────── */
 
-const ROLES = [
-  {
-    id: 'tallerista',
-    label: 'Tallerista',
-    description: 'Gestiona talleres y participantes',
-    icon: <LayersIcon />,
-  },
-  {
-    id: 'joven',
-    label: 'Joven',
-    description: 'Consulta tus logros y actividades',
-    icon: <StarIcon />,
-  },
-  {
-    id: 'acudiente',
-    label: 'Acudiente',
-    description: 'Acompaña el proceso formativo',
-    icon: <PeopleIcon />,
-  },
-  {
-    id: 'administrador',
-    label: 'Administradora',
-    description: 'Vista global del programa',
-    icon: <AdminIcon />,
-  },
-]
-
 const FEATURES = [
   { icon: <ClipboardIcon />, label: 'Procesos organizados' },
   { icon: <TargetIcon />,    label: 'Seguimiento cercano' },
   { icon: <ShieldIcon />,    label: 'Información segura' },
 ]
 
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+
+const errorLabel = (err) => {
+  const msg = err?.message ?? ''
+  if (msg.includes('429')) return 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.'
+  if (msg.includes('502') || msg.includes('503') || msg.includes('504'))
+    return 'El servicio no responde ahora mismo. Inténtalo de nuevo en unos segundos.'
+  if (msg.includes('401') || msg.toLowerCase().includes('incorrectos') || msg.toLowerCase().includes('inválid'))
+    return 'Correo o contraseña incorrectos.'
+  if (msg) return msg
+  return 'No se pudo iniciar sesión. Verifica tu conexión.'
+}
+
 /* ── Component ──────────────────────────────────────────────────────────── */
 
 const Login = () => {
-  const navigate = useNavigate()
+  const navigate              = useNavigate()
+  const { saveSession, destinoPorRol } = useAuth()
 
-  const [selectedRole, setSelectedRole] = useState('tallerista')
-  const [email, setEmail]               = useState('')
-  const [password, setPassword]         = useState('')
+  const [email,        setEmail]        = useState('')
+  const [password,     setPassword]     = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [googleError, setGoogleError]   = useState('')
-  const [loading, setLoading]           = useState(false)
-  const [error, setError]               = useState('')
-
-  const roleLabel = ROLES.find(r => r.id === selectedRole)?.label ?? ''
-
-  const getDestino = () => {
-    if (selectedRole === 'tallerista')    return '/tallerista/inicio'
-    if (selectedRole === 'acudiente')     return '/acudiente'
-    if (selectedRole === 'administrador') return '/administrador/inicio'
-    return '/dashboard'
-  }
+  const [loading,      setLoading]      = useState(false)
+  const [error,        setError]        = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -146,22 +92,14 @@ const Login = () => {
     setError('')
     try {
       const data = await api.post('/auth/login', { email, password })
-      localStorage.setItem('token', data.token)
-      navigate(getDestino())
-    } catch {
-      localStorage.removeItem('token')
-      setError('Correo o contraseña incorrectos')
+      saveSession(data)
+      navigate(destinoPorRol(data.user?.roles ?? []))
+    } catch (err) {
+      setError(errorLabel(err))
     } finally {
       setLoading(false)
     }
   }
-
-  const handleGoogleLogin = useGoogleLogin({
-    onSuccess: () => navigate(getDestino()),
-    onError: () => {
-      setGoogleError('No se pudo iniciar sesión con Google. Inténtalo de nuevo.')
-    },
-  })
 
   return (
     <div className="login-page">
@@ -203,33 +141,22 @@ const Login = () => {
           <p className="form-tag">Bienvenido a Son Up</p>
           <h2 className="form-title">Inicia sesión</h2>
           <p className="form-subtitle">
-            Selecciona tu rol e ingresa con tus datos de acceso.
+            Ingresa con tu correo y contraseña.
           </p>
-
-          <p className="role-question">¿Cómo quieres ingresar?</p>
-          <div className="role-grid">
-            {ROLES.map(role => (
-              <RoleCard
-                key={role.id}
-                role={role}
-                isSelected={selectedRole === role.id}
-                onSelect={() => setSelectedRole(role.id)}
-              />
-            ))}
-          </div>
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <div className="field">
-              <label htmlFor="email">Usuario o correo electrónico</label>
+              <label htmlFor="email">Correo electrónico</label>
               <div className="input-wrapper">
                 <span className="input-icon"><MailIcon /></span>
                 <input
                   id="email"
-                  type="text"
+                  type="email"
                   placeholder="usuario@correo.com"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   autoComplete="username"
+                  required
                 />
               </div>
             </div>
@@ -245,6 +172,7 @@ const Login = () => {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   autoComplete="current-password"
+                  required
                 />
                 <button
                   type="button"
@@ -258,10 +186,10 @@ const Login = () => {
 
             <a href="#" className="forgot-link">¿Olvidaste tu contraseña?</a>
 
-            {error && <p className="login-error">{error}</p>}
+            {error && <p className="login-error" role="alert">{error}</p>}
 
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Ingresando…' : `Ingresar como ${roleLabel}`}
+              {loading ? 'Ingresando…' : 'Ingresar'}
             </button>
           </form>
 
@@ -269,11 +197,10 @@ const Login = () => {
             <span>o continúa con</span>
           </div>
 
-          <button type="button" className="btn-google" onClick={handleGoogleLogin}>
+          <button type="button" className="btn-google" disabled>
             <GoogleIcon />
             Iniciar sesión con Google
           </button>
-          {googleError && <p className="google-error">{googleError}</p>}
 
         </div>
       </main>

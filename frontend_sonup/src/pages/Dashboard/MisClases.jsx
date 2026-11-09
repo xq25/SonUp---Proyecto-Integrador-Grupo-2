@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { getStudentAttendances } from '../../services/attendances.js'
 import { getWorkshops } from '../../services/workshops.js'
 import Logo from '../../components/Logo/Logo'
@@ -54,13 +55,14 @@ function agruparPorMes(asistencias) {
 
 const MisClases = () => {
   const navigate = useNavigate()
+  const { session } = useAuth()
   const [asistencias,  setAsistencias]  = useState([])
   const [talleresMapa, setTalleresMapa] = useState({})
   const [tallerActivo, setTallerActivo] = useState(null)
   const [cargando,     setCargando]     = useState(true)
 
   useEffect(() => {
-    const studentId = import.meta.env.VITE_STUDENT_ID || '1'
+    const studentId = session?.saga?.childId
     const load = async () => {
       try {
         const [asistRes, wsRes] = await Promise.allSettled([
@@ -86,7 +88,7 @@ const MisClases = () => {
       finally { setCargando(false) }
     }
     load()
-  }, [])
+  }, [session?.saga?.childId])
 
   const grupos = useMemo(() => agruparPorMes(asistencias), [asistencias])
 

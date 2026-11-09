@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import Logo from '../../components/Logo/Logo'
 import { getChild } from '../../services/children.js'
 import { getStudentAttendances } from '../../services/attendances.js'
-import { getStudentSkills } from '../../services/skills.js'
-import { getEvaluationScales } from '../../services/evaluations.js'
+import { getStudentCategoryAverages } from '../../services/skills.js'
 import { getWorkshops } from '../../services/workshops.js'
 import './Dashboard.css'
 
@@ -67,6 +67,7 @@ const ChevronLeftIcon = () => (
 
 const Dashboard = () => {
   const navigate = useNavigate()
+  const { session } = useAuth()
 
   const [niño,         setNiño]         = useState(null)
   const [proximaClase, setProximaClase] = useState(null)
@@ -76,29 +77,24 @@ const Dashboard = () => {
   const [errorCarga,   setErrorCarga]   = useState('')
 
   useEffect(() => {
-    const studentId = import.meta.env.VITE_STUDENT_ID || '1'
+    const studentId = session?.saga?.childId
     const load = async () => {
       try {
-        const [child, attendances, studentSkills, scales, workshops] = await Promise.all([
+        const [child, attendances, categoryAverages, workshops] = await Promise.all([
           getChild(studentId),
           getStudentAttendances(studentId),
-          getStudentSkills(studentId),
-          getEvaluationScales({ activeOnly: false }),
+          getStudentCategoryAverages(studentId),
           getWorkshops({}),
         ])
 
         setNiño(child)
 
-        const scaleNames = new Map(
-          scales.map(scale => [String(scale.id), scale.name])
+        setCalificaciones(
+          (categoryAverages ?? []).map(cat => ({
+            name:      cat.categoryName ?? `Categoría ${cat.categoryId ?? ''}`,
+            scaleName: cat.scale?.name  ?? (cat.average != null ? String(cat.average) : '—'),
+          }))
         )
-        const countsByGrade = new Map()
-        studentSkills.forEach(skill => {
-          const grade = scaleNames.get(String(skill.evaluationScaleId))
-          if (!grade) throw new Error(`No se encontró la escala de la calificación ${skill.evaluationScaleId}.`)
-          countsByGrade.set(grade, (countsByGrade.get(grade) ?? 0) + 1)
-        })
-        setCalificaciones([...countsByGrade].map(([name, count]) => ({ name, count })))
 
         const attendedIds = new Set(
           attendances.map(a => String(a.workshopId))
@@ -114,7 +110,7 @@ const Dashboard = () => {
       finally { setCargando(false) }
     }
     load()
-  }, [])
+  }, [session?.saga?.childId])
 
   const nombre = niño
     ? (niño.firstName || [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Joven')
@@ -193,10 +189,10 @@ const Dashboard = () => {
             <p className="joven-logros-card__sub">Estado de tus habilidades, según la escala registrada</p>
           </div>
           <div className="joven-calificaciones" aria-label="Calificaciones por escala">
-            {calificaciones.length ? calificaciones.map(({ name, count }) => (
+            {calificaciones.length ? calificaciones.map(({ name, scaleName }) => (
               <span className="joven-calificacion" key={name}>
                 <strong>{name}</strong>
-                <span>{count} habilidad{count === 1 ? '' : 'es'}</span>
+                <span>{scaleName}</span>
               </span>
             )) : (
               <span className="joven-logros-card__sub">Aún no tienes calificaciones registradas.</span>

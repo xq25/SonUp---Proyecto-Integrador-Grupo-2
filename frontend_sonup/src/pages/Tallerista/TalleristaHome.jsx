@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { getWorkshops }             from '../../services/workshops.js'
 import { getWorkshopAttendances }   from '../../services/attendances.js'
 import { getStudentCategoryAverages } from '../../services/skills.js'
@@ -63,6 +64,7 @@ const formatFechaCorta = (iso) =>
 
 const TalleristaHome = () => {
   const navigate = useNavigate()
+  const { session } = useAuth()
 
   const [talleres,     setTalleres]     = useState([])
   const [tallerMapa,   setTallerMapa]   = useState({})
@@ -73,7 +75,7 @@ const TalleristaHome = () => {
   const [cargando,     setCargando]     = useState(true)
 
   useEffect(() => {
-    const evaluatorId = import.meta.env.VITE_EVALUATOR_ID
+    const evaluatorId = session?.saga?.professionalId
     const load = async () => {
       try {
         /* 1 — Talleres del evaluador */
@@ -119,7 +121,7 @@ const TalleristaHome = () => {
       finally  { setCargando(false) }
     }
     load()
-  }, [])
+  }, [session?.saga?.professionalId])
 
   /* ── Derivados ── */
 
@@ -197,7 +199,7 @@ const TalleristaHome = () => {
       {/* Header */}
       <header className="tl-header">
         <div>
-          <h1 className="tl-header__greeting">{getGreeting()}, Laura</h1>
+          <h1 className="tl-header__greeting">{getGreeting()}, {session?.user?.username?.split(' ')?.[0] || 'Tallerista'}</h1>
           <p className="tl-header__sub">Aquí tienes lo más importante para hoy.</p>
         </div>
       </header>
