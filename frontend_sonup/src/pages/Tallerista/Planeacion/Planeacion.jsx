@@ -7,6 +7,7 @@ import {
 } from '../../../services/workshops.js'
 import { getSkills, getSkillCategories } from '../../../services/skills.js'
 import { getProfessionals } from '../../../services/professionals.js'
+import { getStaff } from '../../../services/staff.js'
 import { startOfBogotaDay, toBogotaDateInput, todayBogota, formatFecha, nombreDe } from '../../../utils/workshops.js'
 import './Planeacion.css'
 
@@ -26,6 +27,7 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
   const [catalogo, setCatalogo]     = useState([])     // skills
   const [categorias, setCategorias] = useState([])
   const [profesionales, setProfesionales] = useState([])
+  const [staff, setStaff]           = useState([])
   const [cargando, setCargando]     = useState(true)
   const [errorCarga, setErrorCarga] = useState('')
 
@@ -44,6 +46,7 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
   const skillPorId = useMemo(() => new Map(catalogo.map(s => [String(s.id), s])), [catalogo])
   const categoriaPorId = useMemo(() => new Map(categorias.map(c => [String(c.id), c])), [categorias])
   const profesionalPorId = useMemo(() => new Map(profesionales.map(p => [String(p.id), p])), [profesionales])
+  const staffPorId = useMemo(() => new Map(staff.map(s => [String(s.id), s])), [staff])
 
   const marcar = (id, value) => setOcupado(o => ({ ...o, [id]: value }))
   const avisar = (id, tipo, texto) => setMensaje(m => ({ ...m, [id]: texto ? { tipo, texto } : undefined }))
@@ -69,13 +72,14 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
   useEffect(() => {
     let vivo = true
     const base = [getSkills(), getSkillCategories()]
-    if (isAdmin) base.push(getProfessionals())
-    Promise.allSettled([cargar(), ...base]).then(([lista, skills, cats, profs]) => {
+    if (isAdmin) base.push(getProfessionals(), getStaff())
+    Promise.allSettled([cargar(), ...base]).then(([lista, skills, cats, profs, staffRes]) => {
       if (!vivo) return
       if (lista.status === 'rejected') setErrorCarga(lista.reason?.message || 'No se pudieron cargar los talleres.')
       if (skills.status === 'fulfilled') setCatalogo(skills.value)
       if (cats.status === 'fulfilled') setCategorias(cats.value)
       if (profs?.status === 'fulfilled') setProfesionales(profs.value)
+      if (staffRes?.status === 'fulfilled') setStaff(staffRes.value)
       setCargando(false)
     })
     return () => { vivo = false }
@@ -229,7 +233,7 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
                   onChange={e => setNuevo(n => ({ ...n, evaluatorId: e.target.value }))}>
                   <option value="">— Selecciona —</option>
                   {profesionales.map(p => (
-                    <option key={String(p.id)} value={String(p.id)}>{nombreDe(p, `Tallerista ${p.id}`)}</option>
+                    <option key={String(p.id)} value={String(p.id)}>{nombreDe(staffPorId.get(String(p.staffId)), `Tallerista ${p.id}`)}</option>
                   ))}
                 </select>
               </div>
@@ -288,7 +292,7 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
                   <h2 className="plan-card__nombre">{t.name}</h2>
                   <p className="plan-card__meta">
                     Inicio: {formatFecha(t.startsAt)}
-                    {isAdmin && responsable && <> · {nombreDe(responsable)}</>}
+                    {isAdmin && responsable && <> · {nombreDe(staffPorId.get(String(responsable.staffId)), `Tallerista ${responsable.id}`)}</>}
                   </p>
                   <ul className="plan-checks" role="list" aria-label="Requisitos para activar">
                     <li className={cuantas > 0 ? 'plan-check plan-check--ok' : 'plan-check'}>
@@ -351,7 +355,7 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
                         <label htmlFor={`plan-e-${id}`}>Tallerista responsable</label>
                         <select id={`plan-e-${id}`} value={d.evaluatorId} onChange={e => editar(id, 'evaluatorId', e.target.value)}>
                           {profesionales.map(p => (
-                            <option key={String(p.id)} value={String(p.id)}>{nombreDe(p, `Tallerista ${p.id}`)}</option>
+                            <option key={String(p.id)} value={String(p.id)}>{nombreDe(staffPorId.get(String(p.staffId)), `Tallerista ${p.id}`)}</option>
                           ))}
                         </select>
                       </div>
