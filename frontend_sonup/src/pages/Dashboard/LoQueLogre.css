@@ -167,7 +167,7 @@
   background: #FFFFFF;
   color: #176D65;
   padding: 0.3rem 0.7rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
 }
 
 /* Logrado — fondo teal claro */
@@ -229,6 +229,6 @@
 
   .ll-tab {
     padding: 0.55rem 0.75rem;
-    font-size: 0.78rem;
+    font-size: var(--fs-xs);
   }
 }

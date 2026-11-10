@@ -58,7 +58,7 @@
   border-radius: 8px;
   background: #FDECEA;
   color: #8C2B22;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 /* ── Música — hero card ───────────────────────────────────────────────────── */
@@ -247,7 +247,7 @@
   background: #F0F7F5;
   color: #176D65;
   padding: 0.55rem 0.8rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
 }
 
 .joven-calificacion span {

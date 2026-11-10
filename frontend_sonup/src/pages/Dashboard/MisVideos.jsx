@@ -9,13 +9,6 @@ import './MisVideos.css'
 
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
 
-const VolumeIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-  </svg>
-)
 
 const ChevronLeftIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -78,9 +71,6 @@ const MisVideos = () => {
           <ChevronLeftIcon />
         </button>
         <h1 className="mv-topbar__title">Mis fotos y videos</h1>
-        <button className="mv-topbar__sound" aria-label="Activar audio">
-          <VolumeIcon />
-        </button>
       </header>
 
       {/* Visor cuando hay un video seleccionado */}

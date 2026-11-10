@@ -37,7 +37,7 @@
 }
 
 .comp-tag {
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   color: var(--color-primary, #176D65);
@@ -83,7 +83,7 @@
   border-radius: 8px;
   background: #E8F5E9;
   color: #245A2A;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   line-height: 1.45;
 }
 
@@ -94,7 +94,7 @@
 
 .comp-ayuda {
   color: var(--color-text-muted, #687974);
-  font-size: 0.76rem;
+  font-size: var(--fs-xs);
   line-height: 1.4;
 }
 
@@ -116,7 +116,7 @@
 }
 
 .comp-acudiente-label {
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -124,14 +124,14 @@
 }
 
 .comp-acudiente-nombre {
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   font-weight: 700;
   color: #173632;
   margin: 0;
 }
 
 .comp-acudiente-sub {
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: #55726B;
 }
 
@@ -142,7 +142,7 @@
 }
 
 .comp-label {
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--color-text-dark, #173632);
 }
@@ -150,7 +150,7 @@
 .comp-input,
 .comp-textarea {
   font-family: inherit;
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   padding: 0.6rem 0.85rem;
   border: 1.5px solid var(--color-border, #DFE5E2);
   border-radius: 8px;
@@ -180,7 +180,7 @@
 
 .btn-comp-canal {
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
   padding: 0.65rem 1rem;
   border-radius: 8px;
@@ -220,7 +220,7 @@
 .btn-comp-archivo {
   width: 100%;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
   padding: 0.7rem 1rem;
   border-radius: 8px;
@@ -242,7 +242,7 @@
 
 .btn-comp-copiar {
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   background: transparent;
   border: 1px solid var(--color-border, #DFE5E2);
@@ -278,7 +278,7 @@
 
 .btn-comp-cerrar {
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   padding: 0.55rem 1.15rem;
   background: var(--color-bg, #F3F7F5);

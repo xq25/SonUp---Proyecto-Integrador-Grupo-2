@@ -1,7 +1,7 @@
 /* ── Page ────────────────────────────────────────────────────────────────── */
 
 .cert-page {
-  padding: 1.5rem 2rem 3rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem) clamp(1rem, 3vw, 2rem) clamp(1.5rem, 4vw, 3rem);
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -469,7 +469,7 @@
 }
 
 .cert-enviar-nota {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: #687974;
   background: #F0F1EF;
   border-radius: 7px;
@@ -565,4 +565,4 @@
 .cert-confirmar { background: var(--color-accent-light, #FFF0D8); border-radius: 12px; padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.7rem; font-size: var(--fs-sm); }
 .btn-peligro { background: #8C2B22; }
 .btn-peligro:hover:not(:disabled) { background: #70211a; }
-.cert-ayuda { display: block; font-size: 0.72rem; color: var(--color-text-muted); margin-bottom: 0.25rem; }
+.cert-ayuda { display: block; font-size: var(--fs-xs); color: var(--color-text-muted); margin-bottom: 0.25rem; }

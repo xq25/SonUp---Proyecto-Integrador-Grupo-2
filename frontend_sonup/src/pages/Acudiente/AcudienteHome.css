@@ -144,7 +144,7 @@
   background: none;
   border: none;
   color: #687974;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   cursor: pointer;
   padding: 0.25rem;
   border-radius: 6px;
@@ -266,7 +266,7 @@
 }
 
 .acu-badge-tz__icon {
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
 }
 
 .acu-badge-tz__text strong {
