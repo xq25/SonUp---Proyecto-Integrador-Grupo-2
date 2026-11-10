@@ -109,29 +109,7 @@ const MisCertificados = () => {
             </button>
           </div>
 
-          <article className="mcert-diploma">
-            <div className="mcert-diploma__border">
-              <div className="mcert-diploma__badge">
-                <RibbonIcon />
-              </div>
-              <p className="mcert-diploma__brand">SON UP</p>
-              <h2 className="mcert-diploma__heading">CERTIFICADO DE PARTICIPACIÓN</h2>
-              <p className="mcert-diploma__intro">Se otorga el presente certificado a</p>
-              <p className="mcert-diploma__student">
-                {nombreJoven || 'Participante'}
-              </p>
-              <p className="mcert-diploma__text">
-                por su participación activa en <strong>{selectedCert.organizationName}</strong>.
-              </p>
-              <p className="mcert-diploma__date">
-                Fundación Asisco · {selectedCert.createdAt ? formatFecha(selectedCert.createdAt) : '—'}
-              </p>
-            </div>
-          </article>
-
-          <div style={{ marginTop: '1rem' }}>
-            <CertificatePreview url={selectedCert.url} title={selectedCert.organizationName} />
-          </div>
+          <CertificatePreview url={selectedCert.url} title={selectedCert.organizationName} />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
             <button type="button" className="mcert-download-btn" onClick={() => window.print()}>
