@@ -291,3 +291,13 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── «Imprimir certificado»: en papel sale solo el diploma ───────────────────
+   Se acota con :has(.mcert-diploma) para que NO afecte la impresión de otras páginas
+   (este CSS se carga junto con toda la app). */
+@media print {
+  body:has(.mcert-diploma) * { visibility: hidden !important; }
+  body:has(.mcert-diploma) .mcert-diploma,
+  body:has(.mcert-diploma) .mcert-diploma * { visibility: visible !important; }
+  body:has(.mcert-diploma) .mcert-diploma { position: fixed; top: 0; left: 0; right: 0; margin: 0 auto; max-width: 900px; box-shadow: none; }
+}

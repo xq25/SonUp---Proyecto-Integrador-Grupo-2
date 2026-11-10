@@ -92,6 +92,8 @@ const ParticipantePerfil = () => {
   const { childId } = useParams()
   const { pathname } = useLocation()
   const base = pathname.startsWith('/administrador') ? '/administrador' : '/tallerista'
+  const esAdmin = base === '/administrador'
+  const termino = esAdmin ? 'joven' : 'participante'   // el admin habla de «jóvenes»; el tallerista, de «participantes»
   const [verMas,    setVerMas]    = useState(false)
   const [tabActivo, setTabActivo] = useState(null)
 
@@ -164,7 +166,7 @@ const ParticipantePerfil = () => {
   }, [childId])
 
   /* Derivados */
-  const nombre   = niño ? [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Participante' : '…'
+  const nombre   = niño ? [niño.firstName, niño.lastName].filter(Boolean).join(' ') || (esAdmin ? 'Joven' : 'Participante') : '…'
   const edad     = niño?.birthDate ? calcularEdad(niño.birthDate) : null
   const iniciales = niño ? initiales(niño.firstName, niño.lastName) : '?'
   const acudienteObj = acudientes[0]?.guardian ?? acudientes[0] ?? null
@@ -196,7 +198,7 @@ const ParticipantePerfil = () => {
       {/* ── Header ── */}
       <header className="perfil-header">
         <div>
-          <h1 className="perfil-header__title">Perfil del participante</h1>
+          <h1 className="perfil-header__title">Perfil del {termino}</h1>
           <p className="perfil-header__subtitle">Información organizada por categoría de habilidades</p>
         </div>
         <div className="perfil-header__acciones">
@@ -205,11 +207,11 @@ const ParticipantePerfil = () => {
               className="perfil-selector"
               value={String(childId)}
               onChange={e => navigate(`${base}/participante/${e.target.value}`)}
-              aria-label="Cambiar participante"
+              aria-label={`Cambiar ${termino}`}
             >
               {niños.map(n => (
                 <option key={String(n.id)} value={String(n.id)}>
-                  {[n.firstName, n.lastName].filter(Boolean).join(' ') || `Participante ${n.id}`}
+                  {[n.firstName, n.lastName].filter(Boolean).join(' ') || `${esAdmin ? 'Joven' : 'Participante'} ${n.id}`}
                 </option>
               ))}
             </select>
@@ -506,7 +508,7 @@ const ParticipantePerfil = () => {
                   <p className="anamnesis-dx">{niño.notes}</p>
                 ) : (
                   <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)' }}>
-                    Sin notas registradas para este participante.
+                    Sin notas registradas para este {termino}.
                   </p>
                 )}
               </div>

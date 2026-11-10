@@ -12,11 +12,11 @@ import './Informes.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
 
-const DownloadIcon = () => (
+const PrintIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7 10 12 15 17 10" />
-    <line x1="12" y1="15" x2="12" y2="3" />
+    <polyline points="6 9 6 2 18 2 18 9" />
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+    <rect x="6" y="14" width="12" height="8" />
   </svg>
 )
 const SendIcon = () => (
@@ -176,8 +176,6 @@ const Informes = () => {
       ok: c.skillCount > 0,
       estado: c.skillCount > 0 ? 'Completas' : 'Pendiente',
     })),
-    { label: 'Revisión del docente', ok: false, estado: 'Pendiente' },
-    { label: 'Firmas', ok: false, estado: 'Pendiente' },
   ], [catAverages])
 
   const titulo = `Informe del ${semestre()} semestre ${año}`
@@ -259,7 +257,7 @@ const Informes = () => {
           {childId && (
             <>
               <button className="btn-descargar" onClick={() => window.print()}>
-                <DownloadIcon /> Descargar PDF
+                <PrintIcon /> Imprimir informe
               </button>
               <button className="btn-enviar" onClick={() => setMostrarEnviar(true)}>
                 <SendIcon /> Enviar a la familia
@@ -398,6 +396,9 @@ const Informes = () => {
 
             <div className="card">
               <h3 className="card-titulo-sm">Antes de enviar</h3>
+              {checklist.length === 0 && (
+                <p className="quien-texto">Aún no hay valoraciones por categoría para revisar.</p>
+              )}
               <ul className="checklist" role="list">
                 {checklist.map(item => (
                   <li key={item.label} className="checklist-item">

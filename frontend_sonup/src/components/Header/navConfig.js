@@ -7,9 +7,9 @@ import { ROLES } from '../../context/AuthContext'
  * icono en `components/Sidebar/icons.jsx`. `match`: 'exact' (la ruta tal cual) o
  * 'prefix' (la ruta y todo lo que cuelgue de ella, p. ej. /tallerista/participante/12).
  */
-const staffMenu = (base, extra = []) => [
+const staffMenu = (base, extra = [], etiquetas = {}) => [
   { id: 'inicio',        label: 'Inicio',               icon: 'home',         to: `${base}/inicio`,        match: 'exact'  },
-  { id: 'participantes', label: 'Participantes',        icon: 'users',        to: `${base}/participante`,  match: 'prefix' },
+  { id: 'participantes', label: etiquetas.participantes ?? 'Participantes', icon: 'users',        to: `${base}/participante`,  match: 'prefix' },
   { id: 'planeacion',    label: 'Planeación',           icon: 'clipboard',    to: `${base}/planeacion`,    match: 'prefix' },
   { id: 'sesiones',      label: 'Sesiones',             icon: 'play',         to: `${base}/talleres`,      match: 'prefix' },
   { id: 'habilidades',   label: 'Habilidades y juegos', icon: 'sparkles',     to: `${base}/habilidades`,   match: 'prefix' },
@@ -25,7 +25,7 @@ export const MENU_BY_ROLE = {
   [ROLES.admin]: staffMenu('/administrador', [
     { id: 'acudientes', label: 'Acudientes', icon: 'family', to: '/administrador/acudientes', match: 'prefix' },
     { id: 'personal',   label: 'Personal',   icon: 'badge',  to: '/administrador/personal',   match: 'prefix' },
-  ]),
+  ], { participantes: 'Jóvenes' }),
   [ROLES.tallerista]: staffMenu('/tallerista'),
   [ROLES.estudiante]: [
     { id: 'inicio',       label: 'Inicio',             icon: 'home',     to: '/dashboard',               match: 'exact'  },

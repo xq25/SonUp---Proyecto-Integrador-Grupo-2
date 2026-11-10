@@ -1,6 +1,7 @@
 import { useAuth, ROLES } from '../../context/AuthContext'
 import { getWorkshops } from '../../services/workshops.js'
 import { WORKSHOP_STATUS_LABEL, formatFecha } from '../../utils/workshops.js'
+import VolverInicio from './VolverInicio.jsx'
 import useCarga from './useCarga.js'
 import './Vistas.css'
 
@@ -15,6 +16,7 @@ const TalleresDisponibles = () => {
 
   return (
     <div className="vista-page">
+      <VolverInicio />
       <header>
         <p className="vista-eyebrow">TALLERES</p>
         <h1 className="vista-titulo">Talleres disponibles</h1>

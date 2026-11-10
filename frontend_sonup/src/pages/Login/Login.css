@@ -265,68 +265,10 @@
   background-color: var(--color-primary-dark);
 }
 
-/* divider */
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 1.25rem 0 1rem;
-}
-
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--color-border);
-}
-
-.divider span {
-  font-size: var(--fs-xs);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-
-/* Google button */
-.btn-google {
-  width: 100%;
-  background: var(--color-white);
-  border: 1.5px solid var(--color-border);
-  border-radius: 10px;
-  padding: 0.875rem 1rem;
-  font-size: var(--fs-base);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  color: var(--color-text-dark);
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.btn-google:hover:not(:disabled) {
-  background-color: #f2f2ec;
-  border-color: #c0c0b8;
-}
-
-.btn-google:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .login-error {
   font-size: var(--fs-xs);
   color: #c0392b;
   margin: 0;
-}
-
-.google-error {
-  font-size: var(--fs-xs);
-  color: #c0392b;
-  text-align: center;
-  margin-top: -0.25rem;
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */

@@ -133,6 +133,12 @@
   .app-header__brand { grid-column: 2; font-size: 1.6rem; }
   .app-header__views { grid-column: 4; padding: 0.5rem 0.9rem; }
 
+  /* Sin sidebar (vista del joven): no hay botón de menú lateral */
+  .app-header--sin-lateral .app-header__bar { grid-template-columns: auto 1fr auto; }
+  .app-header--sin-lateral .app-header__brand { grid-column: 1; }
+  .app-header--sin-lateral .app-header__center { grid-column: 2; }
+  .app-header--sin-lateral .app-header__views { grid-column: 3; }
+
   /* El mensaje no cabe: los roles bajan como un panel bajo el header */
   .app-header__center { grid-column: 3; position: static; }
   .app-header__message { display: none; }

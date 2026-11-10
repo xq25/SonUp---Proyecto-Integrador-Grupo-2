@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, destinoPorRol } from '../../context/AuthContext'
 import CertificatePreview, { CREDENTIAL_STATUS_LABEL } from '../../components/CertificatePreview/CertificatePreview.jsx'
+import { getChild } from '../../services/children.js'
 import { getStudentCredentials } from '../../services/credentials.js'
 import CompartirModal from '../../components/CompartirModal/CompartirModal.jsx'
 import './MisCertificados.css'
@@ -37,9 +38,9 @@ const RibbonIcon = () => (
 
 const DownloadIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <polyline points="7 10 12 15 17 10"/>
-    <line x1="12" y1="15" x2="12" y2="3"/>
+    <polyline points="6 9 6 2 18 2 18 9"/>
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+    <rect x="6" y="14" width="12" height="8"/>
   </svg>
 )
 
@@ -75,10 +76,14 @@ const MisCertificados = () => {
   const [cargando,     setCargando]     = useState(true)
   const [selectedCert, setSelectedCert] = useState(null)
   const [mostrarCompartir, setMostrarCompartir] = useState(false)
+  const [nombreJoven, setNombreJoven] = useState('')
 
   useEffect(() => {
     const studentId = activeChildId
     if (!studentId) { setCargando(false); return } // sin id todavía (Saga despertando o cuenta sin enlazar)
+    getChild(studentId)
+      .then(c => setNombreJoven([c.firstName, c.lastName].filter(Boolean).join(' ')))
+      .catch(() => {})
     getStudentCredentials(studentId)
       .then(data => setCertificados(data))
       .catch(() => {})
@@ -123,8 +128,7 @@ const MisCertificados = () => {
               <h2 className="mcert-diploma__heading">CERTIFICADO DE PARTICIPACIÓN</h2>
               <p className="mcert-diploma__intro">Se otorga el presente certificado a</p>
               <p className="mcert-diploma__student">
-                {/* nombre del estudiante — usamos "participante" si no está disponible */}
-                Participante
+                {nombreJoven || 'Participante'}
               </p>
               <p className="mcert-diploma__text">
                 por su participación activa en <strong>{selectedCert.organizationName}</strong>.
@@ -140,17 +144,10 @@ const MisCertificados = () => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
-            {selectedCert.url && (
-              <a
-                href={selectedCert.url}
-                target="_blank"
-                rel="noreferrer"
-                className="mcert-download-btn"
-              >
-                <DownloadIcon />
-                <span>Ver certificado</span>
-              </a>
-            )}
+            <button type="button" className="mcert-download-btn" onClick={() => window.print()}>
+              <DownloadIcon />
+              <span>Imprimir certificado</span>
+            </button>
             <button
               type="button"
               className="mcert-download-btn"

@@ -20,3 +20,15 @@
   overflow-y: auto;
   position: relative;
 }
+
+/* ── Impresión ───────────────────────────────────────────────────────────────
+   El shell es de alto fijo con scroll interno: al imprimir hay que soltarlo, ocultar
+   header y sidebar y dejar que el contenido fluya en tantas hojas como necesite. */
+@media print {
+  html, body { background: #fff !important; }
+  .app-main, .app-body { background: #fff !important; }
+  .app-shell { height: auto !important; display: block !important; overflow: visible !important; background: #fff !important; }
+  .app-header, .app-sidebar, .app-sidebar__overlay { display: none !important; }
+  .app-body { display: block !important; }
+  .app-main { overflow: visible !important; }
+}

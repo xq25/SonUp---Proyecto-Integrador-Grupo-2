@@ -14,7 +14,7 @@ const ROLE_ICON = { ADMIN: 'shield', TALLERISTA: 'monitor', ACUDIENTE: 'family',
  *    Al elegir otro rol la página se RECARGA hacia el dashboard de ese rol.
  * El rol es solo de interfaz: el backend autoriza con todos los roles del token.
  */
-const Header = ({ sidebarOpen = false, onToggleSidebar }) => {
+const Header = ({ conSidebar = true, sidebarOpen = false, onToggleSidebar }) => {
   const { pathname } = useLocation()
   const { roles, activeRole, selectRole, destinoPorRol } = useAuth()
   const [abierto, setAbierto] = useState(false)
@@ -45,9 +45,10 @@ const Header = ({ sidebarOpen = false, onToggleSidebar }) => {
   }
 
   return (
-    <header className="app-header" ref={rootRef}>
+    <header className={`app-header${conSidebar ? '' : ' app-header--sin-lateral'}`} ref={rootRef}>
       <div className="app-header__bar">
 
+        {conSidebar && (
         <button
           type="button"
           className="app-header__burger"
@@ -58,6 +59,7 @@ const Header = ({ sidebarOpen = false, onToggleSidebar }) => {
         >
           <Icon name={sidebarOpen ? 'close' : 'menu'} size={22} />
         </button>
+        )}
 
         <Link to={home} className="app-header__brand" aria-label="Ir al inicio">
           <span className="app-header__brand-orange">asis</span><span className="app-header__brand-teal">co</span>

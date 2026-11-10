@@ -5,6 +5,9 @@ import { nombreDe } from '../../utils/workshops.js'
 import useCarga from './useCarga.js'
 import './Vistas.css'
 
+/* GET /guardians/:id/children devuelve la relación (ChildGuardian) con el joven dentro en `child` */
+const nombreDelJoven = (rel) => nombreDe(rel.child ?? rel, `Joven ${rel.childId ?? rel.id}`)
+
 /** Administrador · listado de acudientes (con sus jóvenes) o del personal. Solo consulta. */
 const Personas = ({ tipo = 'acudientes' }) => {
   const esAcudientes = tipo === 'acudientes'
@@ -52,8 +55,10 @@ const Personas = ({ tipo = 'acudientes' }) => {
           <table className="vista-tabla">
             <thead>
               <tr>
-                <th scope="col">Nombre</th><th scope="col">Documento</th><th scope="col">Correo</th>
-                <th scope="col">{esAcudientes ? 'Jóvenes' : 'Rol / estado'}</th>
+                <th scope="col">Nombre</th><th scope="col">Documento</th>
+                <th scope="col">{esAcudientes ? 'Teléfono' : 'Correo'}</th>
+                {!esAcudientes && <th scope="col">Teléfono</th>}
+                {esAcudientes && <th scope="col">Jóvenes</th>}
               </tr>
             </thead>
             <tbody>
@@ -63,9 +68,10 @@ const Personas = ({ tipo = 'acudientes' }) => {
                   <tr key={id}>
                     <td>{nombreDe(p, `#${id}`)}</td>
                     <td>{p.documentNumber ?? '—'}</td>
-                    <td>{p.email ?? '—'}</td>
+                    <td>{(esAcudientes ? p.phone : p.email) || '—'}</td>
+                    {!esAcudientes && <td>{p.phone || '—'}</td>}
+                    {esAcudientes && (
                     <td>
-                      {esAcudientes ? (
                         <>
                           <button type="button" className="vista-link" onClick={() => verHijos(p)} aria-expanded={abierto === id}>
                             {abierto === id ? 'Ocultar' : 'Ver jóvenes'}
@@ -74,11 +80,11 @@ const Personas = ({ tipo = 'acudientes' }) => {
                             hijos[id]?.error ? <small role="alert"> {hijos[id].error}</small>
                               : !hijos[id] ? <small> Cargando…</small>
                               : hijos[id].lista.length === 0 ? <small> Sin jóvenes vigentes.</small>
-                              : <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.1rem' }}>{hijos[id].lista.map(c => <li key={String(c.id ?? c.childId)}>{nombreDe(c, `Joven ${c.id ?? c.childId}`)}</li>)}</ul>
+                              : <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.1rem' }}>{hijos[id].lista.map(r => <li key={String(r.id ?? r.childId)}>{nombreDelJoven(r)}</li>)}</ul>
                           )}
                         </>
-                      ) : [p.roleName, p.statusName].filter(Boolean).join(' · ') || '—'}
                     </td>
+                    )}
                   </tr>
                 )
               })}

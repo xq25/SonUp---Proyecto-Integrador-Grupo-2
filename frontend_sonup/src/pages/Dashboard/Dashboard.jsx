@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import Logo from '../../components/Logo/Logo'
+import Icon from '../../components/Sidebar/icons.jsx'
 import { getChild } from '../../services/children.js'
 import { getStudentAttendances } from '../../services/attendances.js'
 import { getStudentCategoryAverages } from '../../services/skills.js'
@@ -125,6 +126,8 @@ const Dashboard = () => {
     { id: 'videos',       label: 'Mis fotos y videos',       icon: <VideoIcon />,    variante: 'default',  ruta: '/joven/mis-videos'       },
     { id: 'certificados', label: 'Mis certificados', icon: <MedalIcon />,    variante: 'default',  ruta: '/joven/mis-certificados' },
     { id: 'clases',       label: 'Mis clases',       icon: <CalendarIcon />, variante: 'default',  ruta: '/joven/mis-clases'       },
+    { id: 'disponibles',  label: 'Talleres disponibles', icon: <Icon name="list" size={28} />, variante: 'default', ruta: '/joven/talleres' },
+    { id: 'datos',        label: 'Mis datos',        icon: <Icon name="user" size={28} />, variante: 'default', ruta: '/joven/perfil' },
   ]
 
   return (
@@ -168,7 +171,7 @@ const Dashboard = () => {
         </button>
       )}
 
-      {/* Los 4 módulos en grid */}
+      {/* Los módulos en grid (el joven no tiene sidebar) */}
       <div className="joven-modulos" role="list">
         {MODULOS.map(m => (
           <button
