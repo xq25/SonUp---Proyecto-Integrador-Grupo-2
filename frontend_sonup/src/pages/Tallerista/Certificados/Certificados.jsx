@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../context/AuthContext'
 import { getWorkshops } from '../../../services/workshops.js'
 import { getWorkshopAttendances } from '../../../services/attendances.js'
-import { createCredential, getStudentCredentials } from '../../../services/credentials.js'
+import { createCredential, updateCredential, deleteCredential, getStudentCredentials } from '../../../services/credentials.js'
 import { getChildren } from '../../../services/children.js'
+import CertificatePreview, { CREDENTIAL_STATUS_LABEL } from '../../../components/CertificatePreview/CertificatePreview.jsx'
 import CompartirModal from '../../../components/CompartirModal/CompartirModal.jsx'
 import './Certificados.css'
 
@@ -32,7 +34,7 @@ const XIcon = () => (
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
-const ESTADO_LABEL = { pending: 'Borrador', valid: 'Firmado', revoked: 'Revocado' }
+const ESTADO_LABEL = CREDENTIAL_STATUS_LABEL
 
 const formatFecha = (iso) =>
   new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -41,6 +43,7 @@ const formatFecha = (iso) =>
 
 const Certificados = () => {
   const { session } = useAuth()
+  const [params, setParams] = useSearchParams()
   const [certificados,  setCertificados]  = useState([])
   const [niños,         setNiños]         = useState([])
   const [talleres,      setTalleres]      = useState([])
@@ -51,6 +54,11 @@ const Certificados = () => {
   const [certEnviar,    setCertEnviar]    = useState(null)
   const [guardando,     setGuardando]     = useState(false)
   const [errorGuardar,  setErrorGuardar]  = useState('')
+  const [asistenciasPorTaller, setAsistenciasPorTaller] = useState({})  // workshopId → Set(studentId)
+  const [editandoId,    setEditandoId]    = useState(null)   // credencial pending que se está editando
+  const [confirmar,     setConfirmar]     = useState(null)   // 'eliminar' | 'revocar' | 'validar'
+  const [accionando,    setAccionando]    = useState(false)
+  const [errorAccion,   setErrorAccion]   = useState('')
 
   const [form, setForm] = useState({
     studentId:   '',
@@ -83,9 +91,13 @@ const Certificados = () => {
           ws.map(t => getWorkshopAttendances(t.id))
         )
         const studentIdSet = new Set()
-        asistRes.forEach(r => {
-          if (r.status === 'fulfilled') r.value.forEach(a => studentIdSet.add(String(a.studentId)))
+        const porTaller = {}
+        asistRes.forEach((r, i) => {
+          if (r.status !== 'fulfilled') return
+          porTaller[String(ws[i].id)] = new Set(r.value.map(a => String(a.studentId)))
+          r.value.forEach(a => studentIdSet.add(String(a.studentId)))
         })
+        setAsistenciasPorTaller(porTaller)
         const certRes = await Promise.allSettled(
           [...studentIdSet].map(id => getStudentCredentials(id))
         )
@@ -100,10 +112,59 @@ const Certificados = () => {
     load()
   }, [session?.saga?.professionalId])
 
+  /* Llegada desde «Resultados» de un taller: abre «Nuevo certificado» ya con participante y taller */
+  const pidePrellenado = params.get('participante') && params.get('taller')
+  useEffect(() => {
+    if (cargando || !pidePrellenado) return
+    const t = talleres.find(x => String(x.id) === params.get('taller'))
+    setForm({ studentId: params.get('participante'), nombre: t ? `Participación en ${t.name}` : '', url: '', workshopId: params.get('taller') })
+    setMostrarCrear(true)
+    setParams({}, { replace: true })
+  }, [cargando, pidePrellenado, params, setParams, talleres])
+
   const cerrarCrear = () => {
     setMostrarCrear(false)
     setForm({ studentId: '', nombre: '', url: '', workshopId: '' })
     setErrorGuardar('')
+    setEditandoId(null)
+  }
+
+  /* Talleres a los que se puede asociar: finalizados y con asistencia del participante (regla del backend) */
+  const talleresAsociables = talleres.filter(t =>
+    t.status === 'finished' && asistenciasPorTaller[String(t.id)]?.has(String(form.studentId)))
+
+  const reemplazar = (actualizada) => {
+    setCertificados(prev => prev.map(c => (String(c.id) === String(actualizada.id) ? { ...c, ...actualizada } : c)))
+    setDetalle(d => (d && String(d.id) === String(actualizada.id) ? { ...d, ...actualizada } : d))
+  }
+
+  const abrirEditar = (cert) => {
+    setForm({ studentId: String(cert.studentId), nombre: cert.organizationName ?? '', url: cert.url ?? '', workshopId: cert.workshopId ? String(cert.workshopId) : '' })
+    setEditandoId(String(cert.id))
+    setDetalle(null)
+    setMostrarCrear(true)
+  }
+
+  const cerrarDetalle = () => { setDetalle(null); setConfirmar(null); setErrorAccion('') }
+
+  /* Solo `pending` se edita o elimina; pending→valid y pending/valid→revoked cambian de estado */
+  const cambiarEstado = async (cert, status) => {
+    setAccionando(true); setErrorAccion('')
+    try {
+      reemplazar(await updateCredential(cert.id, { status }))
+      setConfirmar(null)
+    } catch (e) { setErrorAccion(e.message) }
+    finally { setAccionando(false) }
+  }
+
+  const eliminar = async (cert) => {
+    setAccionando(true); setErrorAccion('')
+    try {
+      await deleteCredential(cert.id)
+      setCertificados(prev => prev.filter(c => String(c.id) !== String(cert.id)))
+      cerrarDetalle()
+    } catch (e) { setErrorAccion(e.message) }
+    finally { setAccionando(false) }
   }
 
   const crearCert = async () => {
@@ -111,6 +172,16 @@ const Certificados = () => {
     setGuardando(true)
     setErrorGuardar('')
     try {
+      if (editandoId) {
+        const editada = await updateCredential(editandoId, {
+          organizationName: form.nombre.trim(),
+          url:              form.url.trim(),
+          workshopId:       form.workshopId || null,
+        })
+        reemplazar(editada)
+        cerrarCrear()
+        return
+      }
       const body = {
         studentId:        form.studentId,
         organizationName: form.nombre.trim(),
@@ -121,7 +192,7 @@ const Certificados = () => {
       setCertificados(prev => [nuevo, ...prev])
       cerrarCrear()
     } catch (e) {
-      setErrorGuardar(`No se pudo crear: ${e.message}`)
+      setErrorGuardar(`No se pudo ${editandoId ? 'guardar' : 'crear'}: ${e.message}`)
     } finally {
       setGuardando(false)
     }
@@ -132,10 +203,6 @@ const Certificados = () => {
     form.url.trim().startsWith('https://') &&
     form.studentId !== '' &&
     !guardando
-
-  const descargar = () => {
-    if (detalle?.url) window.open(detalle.url, '_blank', 'noreferrer')
-  }
 
   /* Abrir modal de envío */
   const abrirEnviar = (cert) => {
@@ -217,7 +284,7 @@ const Certificados = () => {
 
       {/* ── Modal detalle ── */}
       {detalle && (
-        <div className="modal-overlay" onClick={() => setDetalle(null)} role="dialog" aria-modal="true">
+        <div className="modal-overlay" onClick={cerrarDetalle} role="dialog" aria-modal="true">
           <div className="modal-card" onClick={e => e.stopPropagation()}>
 
             <div className="modal-head">
@@ -225,24 +292,12 @@ const Certificados = () => {
                 <p className="modal-tag">DETALLE DEL CERTIFICADO</p>
                 <h2 className="modal-titulo">{detalle.organizationName}</h2>
               </div>
-              <button className="modal-close" onClick={() => setDetalle(null)} aria-label="Cerrar">
+              <button className="modal-close" onClick={cerrarDetalle} aria-label="Cerrar">
                 <XIcon />
               </button>
             </div>
 
-            <div className="cert-preview">
-              <div className="cert-preview__medal"><MedalIcon size={48} /></div>
-              <p className="cert-preview__brand">SON UP</p>
-              <p className="cert-preview__tipo">CERTIFICADO DE PARTICIPACIÓN</p>
-              <p className="cert-preview__otorga">Se otorga el presente certificado a</p>
-              <p className="cert-preview__nombre">{nombreEstudiante(detalle.studentId)}</p>
-              <p className="cert-preview__desc">
-                Por su participación activa en <strong>{detalle.organizationName}</strong>.
-              </p>
-              <p className="cert-preview__pie">
-                Fundación Asisco · {detalle.createdAt ? formatFecha(detalle.createdAt) : '—'}
-              </p>
-            </div>
+            <CertificatePreview url={detalle.url} title={detalle.organizationName} />
 
             <div className="cert-info-row">
               <div className="cert-info-item">
@@ -253,24 +308,60 @@ const Certificados = () => {
                 <p className="cert-info-label">FECHA</p>
                 <p className="cert-info-valor">{detalle.createdAt ? formatFecha(detalle.createdAt) : '—'}</p>
               </div>
+              {detalle.workshopId && (
+                <div className="cert-info-item">
+                  <p className="cert-info-label">TALLER</p>
+                  <p className="cert-info-valor">{talleres.find(t => String(t.id) === String(detalle.workshopId))?.name ?? `Taller ${detalle.workshopId}`}</p>
+                </div>
+              )}
               <div className="cert-info-item">
                 <p className="cert-info-label">ESTADO</p>
                 <p className="cert-info-valor">{ESTADO_LABEL[detalle.status] ?? detalle.status}</p>
               </div>
             </div>
 
-            <div className="modal-acciones">
-              <button className="btn-descargar" onClick={descargar}>
-                <DownloadIcon /> Ver certificado
-              </button>
-              <button
-                className="btn-enviar"
-                onClick={() => abrirEnviar(detalle)}
-              >
-                <SendIcon /> Enviar a la familia
-              </button>
-            </div>
+            {errorAccion && <p className="cert-error" role="alert">{errorAccion}</p>}
 
+            {confirmar && (
+              <div className="cert-confirmar" role="alertdialog" aria-label="Confirmar acción">
+                <p>
+                  {confirmar === 'eliminar' && 'El borrador se eliminará de forma permanente.'}
+                  {confirmar === 'validar'  && 'Al marcarlo como válido ya no podrás editar sus datos ni eliminarlo; solo revocarlo.'}
+                  {confirmar === 'revocar'  && 'Al revocarlo queda sin validez y no se puede deshacer.'}
+                </p>
+                <div className="modal-acciones">
+                  <button className="btn-cancelar" onClick={() => setConfirmar(null)} disabled={accionando}>Volver</button>
+                  <button
+                    className={confirmar === 'validar' ? 'btn-enviar' : 'btn-enviar btn-peligro'}
+                    disabled={accionando}
+                    onClick={() => (confirmar === 'eliminar' ? eliminar(detalle) : cambiarEstado(detalle, confirmar === 'validar' ? 'valid' : 'revoked'))}
+                  >
+                    {accionando ? 'Un momento…' : confirmar === 'eliminar' ? 'Sí, eliminar' : confirmar === 'validar' ? 'Sí, marcar como válido' : 'Sí, revocar'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!confirmar && (
+              <div className="modal-acciones modal-acciones--wrap">
+                {detalle.status === 'pending' && (
+                  <>
+                    <button className="btn-descargar" onClick={() => abrirEditar(detalle)}>Editar</button>
+                    <button className="btn-descargar" onClick={() => { setConfirmar('eliminar'); setErrorAccion('') }}>Eliminar</button>
+                    <button className="btn-enviar" onClick={() => { setConfirmar('validar'); setErrorAccion('') }}>Marcar como válido</button>
+                  </>
+                )}
+                {detalle.status === 'valid' && (
+                  <>
+                    <button className="btn-descargar" onClick={() => { setConfirmar('revocar'); setErrorAccion('') }}>Revocar</button>
+                    <button className="btn-enviar" onClick={() => abrirEnviar(detalle)}><SendIcon /> Enviar a la familia</button>
+                  </>
+                )}
+                {detalle.status === 'revoked' && (
+                  <p className="cert-sub">Este certificado fue revocado y ya no admite cambios.</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -295,8 +386,8 @@ const Certificados = () => {
 
             <div className="modal-head">
               <div>
-                <p className="modal-tag">NUEVO DOCUMENTO</p>
-                <h2 className="modal-titulo">Crear certificado</h2>
+                <p className="modal-tag">{editandoId ? 'BORRADOR' : 'NUEVO DOCUMENTO'}</p>
+                <h2 className="modal-titulo">{editandoId ? 'Editar certificado' : 'Crear certificado'}</h2>
               </div>
               <button className="modal-close" onClick={cerrarCrear} aria-label="Cerrar">
                 <XIcon />
@@ -309,7 +400,8 @@ const Certificados = () => {
                 <select
                   className="cert-select"
                   value={form.studentId}
-                  onChange={e => upd('studentId', e.target.value)}
+                  disabled={Boolean(editandoId)}
+                  onChange={e => setForm(p => ({ ...p, studentId: e.target.value, workshopId: '' }))}
                 >
                   <option value="">Seleccionar estudiante…</option>
                   {niños.map(n => {
@@ -321,17 +413,16 @@ const Certificados = () => {
               </div>
               <div className="cert-campo">
                 <label className="cert-label">Taller (opcional)</label>
+                <small className="cert-ayuda">Solo talleres finalizados a los que el participante asistió.</small>
                 <select
                   className="cert-select"
                   value={form.workshopId}
                   onChange={e => upd('workshopId', e.target.value)}
                 >
                   <option value="">Sin taller asociado</option>
-                  {talleres
-                    .filter(t => t.status === 'finished')
-                    .map(t => (
-                      <option key={String(t.id)} value={String(t.id)}>{t.name}</option>
-                    ))}
+                  {talleresAsociables.map(t => (
+                    <option key={String(t.id)} value={String(t.id)}>{t.name}</option>
+                  ))}
                 </select>
               </div>
               <div className="cert-campo">
@@ -363,7 +454,7 @@ const Certificados = () => {
                 onClick={crearCert}
                 disabled={!puedeCrear}
               >
-                {guardando ? 'Creando…' : 'Crear certificado'}
+                {guardando ? 'Guardando…' : editandoId ? 'Guardar cambios' : 'Crear certificado'}
               </button>
             </div>
 

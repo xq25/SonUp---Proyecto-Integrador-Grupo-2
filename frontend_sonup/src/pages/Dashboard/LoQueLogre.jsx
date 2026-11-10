@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth, destinoPorRol } from '../../context/AuthContext'
 import { getStudentSkills } from '../../services/skills.js'
 import './LoQueLogre.css'
 
@@ -24,7 +24,8 @@ const ChevronLeftIcon = () => (
 
 const LoQueLogre = () => {
   const navigate = useNavigate()
-  const { session } = useAuth()
+  const { activeChildId, activeRole, logout } = useAuth()
+  const cerrarSesion = () => { logout(); navigate('/login', { replace: true }) }
   const [categorias,    setCategorias]    = useState([])
   const [studentSkills, setStudentSkills] = useState([])
   const [cargando,      setCargando]      = useState(true)
@@ -32,7 +33,8 @@ const LoQueLogre = () => {
   const [activeTab,     setActiveTab]     = useState('')
 
   useEffect(() => {
-    const studentId = session?.saga?.childId
+    const studentId = activeChildId
+    if (!studentId) { setCargando(false); return } // sin id todavía (Saga despertando o cuenta sin enlazar)
     const load = async () => {
       try {
         const rows = await getStudentSkills(studentId)
@@ -57,7 +59,7 @@ const LoQueLogre = () => {
       finally { setCargando(false) }
     }
     load()
-  }, [session?.saga?.childId])
+  }, [activeChildId])
 
   const porCategoria = useMemo(() => {
     const result = {}
@@ -80,7 +82,7 @@ const LoQueLogre = () => {
 
       {/* Top bar */}
       <header className="ll-topbar">
-        <button className="ll-topbar__back" onClick={() => navigate('/dashboard')} aria-label="Volver al inicio">
+        <button className="ll-topbar__back" onClick={() => navigate(destinoPorRol([activeRole]))} aria-label="Volver al inicio">
           <ChevronLeftIcon />
         </button>
         <h1 className="ll-topbar__title">Lo que logré</h1>
@@ -145,7 +147,7 @@ const LoQueLogre = () => {
 
       {/* Footer */}
       <footer className="ll-footer">
-        <button className="ll-logout" onClick={() => navigate('/login')} aria-label="Cerrar sesión">
+        <button className="ll-logout" onClick={cerrarSesion} aria-label="Cerrar sesión">
           <ChevronLeftIcon /> Cerrar sesión
         </button>
       </footer>

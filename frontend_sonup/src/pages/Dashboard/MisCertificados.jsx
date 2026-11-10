@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth, destinoPorRol } from '../../context/AuthContext'
+import CertificatePreview, { CREDENTIAL_STATUS_LABEL } from '../../components/CertificatePreview/CertificatePreview.jsx'
 import { getStudentCredentials } from '../../services/credentials.js'
 import CompartirModal from '../../components/CompartirModal/CompartirModal.jsx'
 import './MisCertificados.css'
@@ -62,25 +63,27 @@ const paleta = (id) => ICON_PALETA[Number(String(id ?? '0').at(-1) ?? 0) % ICON_
 const formatFecha = (iso) =>
   new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
 
-const ESTADO_LABEL = { pending: 'Borrador', valid: 'Firmado', revoked: 'Revocado' }
+const ESTADO_LABEL = CREDENTIAL_STATUS_LABEL
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 const MisCertificados = () => {
   const navigate = useNavigate()
-  const { session } = useAuth()
+  const { activeChildId, activeRole, logout } = useAuth()
+  const cerrarSesion = () => { logout(); navigate('/login', { replace: true }) }
   const [certificados, setCertificados] = useState([])
   const [cargando,     setCargando]     = useState(true)
   const [selectedCert, setSelectedCert] = useState(null)
   const [mostrarCompartir, setMostrarCompartir] = useState(false)
 
   useEffect(() => {
-    const studentId = session?.saga?.childId
+    const studentId = activeChildId
+    if (!studentId) { setCargando(false); return } // sin id todavía (Saga despertando o cuenta sin enlazar)
     getStudentCredentials(studentId)
       .then(data => setCertificados(data))
       .catch(() => {})
       .finally(() => setCargando(false))
-  }, [session?.saga?.childId])
+  }, [activeChildId])
 
   return (
     <div className="mcert-page">
@@ -90,7 +93,7 @@ const MisCertificados = () => {
           className="mcert-topbar__back"
           onClick={() => {
             if (selectedCert) setSelectedCert(null)
-            else navigate('/dashboard')
+            else navigate(destinoPorRol([activeRole]))
           }}
           aria-label="Volver"
         >
@@ -131,6 +134,10 @@ const MisCertificados = () => {
               </p>
             </div>
           </article>
+
+          <div style={{ marginTop: '1rem' }}>
+            <CertificatePreview url={selectedCert.url} title={selectedCert.organizationName} />
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
             {selectedCert.url && (
@@ -217,7 +224,7 @@ const MisCertificados = () => {
 
       {/* Footer */}
       <footer className="mcert-footer">
-        <button className="mcert-logout" onClick={() => navigate('/login')} aria-label="Cerrar sesión">
+        <button className="mcert-logout" onClick={cerrarSesion} aria-label="Cerrar sesión">
           <ChevronLeftIcon /> Cerrar sesión
         </button>
       </footer>

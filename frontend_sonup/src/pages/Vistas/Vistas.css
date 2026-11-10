@@ -1,0 +1,52 @@
+/* Vistas genéricas del menú: perfil, talleres disponibles, árbol de habilidades, personas */
+.vista-page {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  display: flex; flex-direction: column; gap: 1.25rem;
+  min-height: 100%;
+  background: var(--color-bg, #F0F1EF);
+  font-family: 'Nunito', sans-serif;
+  color: var(--color-text-dark, #173632);
+}
+.vista-eyebrow { font-size: 0.75rem; font-weight: 800; letter-spacing: .08em; color: var(--color-accent, #F49A18); margin-bottom: 0.2rem; }
+.vista-titulo { font-family: 'Fredoka', 'Nunito', sans-serif; font-size: clamp(1.3rem, 2.6vw, 1.7rem); font-weight: 600; }
+.vista-sub { font-size: var(--fs-sm, 0.9rem); color: var(--color-text-muted, #687974); margin-top: 0.2rem; }
+
+.vista-estado { font-size: var(--fs-sm, 0.9rem); color: var(--color-text-muted, #687974); background: #fff; border: 1px dashed var(--color-border, #DFE5E2); border-radius: 12px; padding: 1rem 1.2rem; }
+.vista-estado--error { color: #8C2B22; background: #FDF2F2; border-color: #e3b9b4; border-style: solid; }
+
+.vista-card { background: #fff; border: 1px solid var(--color-border, #DFE5E2); border-radius: 14px; padding: 1.1rem 1.25rem; }
+.vista-card__titulo { font-size: 1rem; font-weight: 800; color: var(--color-primary, #176D65); margin-bottom: 0.75rem; }
+
+.vista-datos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.85rem 1.5rem; margin: 0; }
+.vista-datos dt { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-muted, #687974); }
+.vista-datos dd { margin: 0.1rem 0 0; font-size: var(--fs-sm, 0.95rem); font-weight: 600; word-break: break-word; }
+
+.vista-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; list-style: none; margin: 0; padding: 0; }
+.vista-item { background: #fff; border: 1px solid var(--color-border, #DFE5E2); border-radius: 14px; padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.vista-item__nombre { font-size: 1rem; font-weight: 800; }
+.vista-item__meta { font-size: 0.8rem; color: var(--color-text-muted, #687974); }
+.vista-chip { display: inline-block; align-self: flex-start; font-size: 0.72rem; font-weight: 800; padding: 0.15rem 0.6rem; border-radius: 999px; background: var(--color-teal-light, #E2F2EF); color: var(--color-primary, #176D65); }
+.vista-chip--planned { background: #FFF0D8; color: #A56A0C; }
+
+.vista-buscar { font: inherit; padding: 0.55rem 0.8rem; border: 1px solid var(--color-border, #DFE5E2); border-radius: 10px; min-width: 240px; background: #fff; }
+.vista-buscar:focus { outline: 2px solid var(--color-accent, #F49A18); outline-offset: 1px; }
+
+.vista-tabla-wrap { overflow-x: auto; background: #fff; border: 1px solid var(--color-border, #DFE5E2); border-radius: 14px; }
+.vista-tabla { width: 100%; border-collapse: collapse; font-size: var(--fs-sm, 0.9rem); }
+.vista-tabla th, .vista-tabla td { text-align: left; padding: 0.7rem 1rem; border-bottom: 1px solid var(--color-border, #DFE5E2); vertical-align: top; }
+.vista-tabla thead th { background: var(--color-teal-light, #E2F2EF); color: var(--color-primary, #176D65); font-size: 0.75rem; text-transform: uppercase; letter-spacing: .05em; }
+.vista-tabla tbody tr:last-child td { border-bottom: 0; }
+.vista-link { background: none; border: 0; color: var(--color-primary, #176D65); font: inherit; font-weight: 700; cursor: pointer; padding: 0; }
+.vista-link:hover { text-decoration: underline; }
+
+.arbol-cat { background: #fff; border: 1px solid var(--color-border, #DFE5E2); border-radius: 14px; overflow: hidden; }
+.arbol-cat__head { background: var(--color-primary, #176D65); color: #fff; padding: 0.7rem 1.1rem; font-weight: 800; display: flex; justify-content: space-between; gap: 1rem; }
+.arbol-cat__head small { font-weight: 600; opacity: .85; }
+.arbol-skills { list-style: none; margin: 0; padding: 0.4rem 0; }
+.arbol-skills li { padding: 0.55rem 1.1rem; border-bottom: 1px solid var(--color-border, #DFE5E2); }
+.arbol-skills li:last-child { border-bottom: 0; }
+.arbol-skills strong { display: block; font-size: var(--fs-sm, 0.95rem); }
+.arbol-skills span { font-size: 0.8rem; color: var(--color-text-muted, #687974); }
+.arbol-escalas { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
+.arbol-escalas li { display: flex; gap: 0.5rem; align-items: center; background: var(--color-teal-light, #E2F2EF); border-radius: 999px; padding: 0.3rem 0.8rem 0.3rem 0.35rem; font-size: 0.8rem; font-weight: 700; }
+.arbol-escalas b { background: var(--color-primary, #176D65); color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: grid; place-items: center; font-size: 0.75rem; }

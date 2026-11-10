@@ -4,6 +4,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { getSkillCategories, getSkills, createSkillCategory, createSkill } from '../../../services/skills.js'
 import { createWorkshop, addWorkshopSkill } from '../../../services/workshops.js'
 import { getProfessionals } from '../../../services/professionals.js'
+import { startOfBogotaDay } from '../../../utils/workshops.js'
 import './Habilidades.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -74,7 +75,7 @@ const catCode = (nombre) => (nombre ?? '').slice(0, 2).toUpperCase()
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
-const Habilidades = ({ isAdmin = false, returnPath = '/tallerista/talleres' }) => {
+const Habilidades = ({ isAdmin = false, returnPath = '/tallerista/planeacion' }) => {
   const navigate = useNavigate()
   const { session } = useAuth()
 
@@ -107,6 +108,8 @@ const Habilidades = ({ isAdmin = false, returnPath = '/tallerista/talleres' }) =
   /* Estado de guardado */
   const [guardando,    setGuardando]    = useState(false)
   const [errorGuardar, setErrorGuardar] = useState(null)
+  const [tallerCreado,  setTallerCreado]  = useState(null)
+  const [habsAgregadas, setHabsAgregadas] = useState(() => new Set())
 
   /* Gestión árbol de habilidades (solo admin) */
   const [arbolAbierto,  setArbolAbierto]  = useState(false)
@@ -195,20 +198,35 @@ const Habilidades = ({ isAdmin = false, returnPath = '/tallerista/talleres' }) =
     })
   }
 
-  /* Crear taller en el backend */
+  /* Crear taller en el backend. Queda en `planned`: se activa desde Planeación.
+     Si falla al agregar alguna habilidad, el taller ya existe: al reintentar solo se completan las que faltan. */
   const crearTaller = async () => {
     if (guardando) return
     setGuardando(true)
     setErrorGuardar(null)
     try {
-      const evaluatorId = isAdmin ? evaluadorSelec : session?.saga?.professionalId
-      const body = { evaluatorId, name: nombre.trim() }
-      if (fechaInicio) body.startsAt = new Date(fechaInicio + 'T12:00:00').toISOString()
-      const taller = await createWorkshop(body)
-      await Promise.all([...seleccionadas].map(skillId => addWorkshopSkill(taller.id, skillId)))
+      let taller = tallerCreado
+      if (!taller) {
+        const evaluatorId = isAdmin ? evaluadorSelec : session?.saga?.professionalId
+        if (!evaluatorId) throw new Error('No hay un tallerista responsable: tu cuenta aún no está enlazada con Saga.')
+        const body = { evaluatorId: String(evaluatorId), name: nombre.trim() }
+        // Inicio del día en Bogotá: así se puede tomar asistencia desde ese día
+        if (fechaInicio) body.startsAt = startOfBogotaDay(fechaInicio)
+        taller = await createWorkshop(body)
+        setTallerCreado(taller)
+      }
+      const pendientes = [...seleccionadas].filter(id => !habsAgregadas.has(String(id)))
+      const res = await Promise.allSettled(pendientes.map(skillId => addWorkshopSkill(taller.id, skillId)))
+      const nuevas = new Set(habsAgregadas)
+      const fallos = []
+      res.forEach((r, i) => { if (r.status === 'fulfilled') nuevas.add(String(pendientes[i])); else fallos.push(r.reason?.message || 'Error') })
+      setHabsAgregadas(nuevas)
+      if (fallos.length) {
+        throw new Error(`El taller «${taller.name}» se creó, pero no se pudieron agregar ${fallos.length} habilidad(es): ${fallos[0]}. Pulsa de nuevo para reintentar solo las que faltan.`)
+      }
       navigate(returnPath)
-    } catch {
-      setErrorGuardar('No se pudo crear el taller. Verifica los datos e intenta de nuevo.')
+    } catch (err) {
+      setErrorGuardar(err.message || 'No se pudo crear el taller. Verifica los datos e intenta de nuevo.')
       setGuardando(false)
     }
   }
@@ -220,6 +238,8 @@ const Habilidades = ({ isAdmin = false, returnPath = '/tallerista/talleres' }) =
     setFechaInicio('')
     setOrigen('sonup')
     setSeleccionadas(new Set())
+    setTallerCreado(null)
+    setHabsAgregadas(new Set())
     setMomentoVal('cierre')
     setResponsable('tallerista')
     setRegla('reciente')

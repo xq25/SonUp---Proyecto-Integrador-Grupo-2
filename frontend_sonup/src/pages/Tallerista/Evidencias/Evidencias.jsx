@@ -2,18 +2,16 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../../../context/AuthContext'
 import { getWorkshops } from '../../../services/workshops.js'
 import { getWorkshopAttendances } from '../../../services/attendances.js'
-import { createEvidence, getStudentEvidences, getEvidenceStudents } from '../../../services/evidences.js'
+import { createEvidence, updateEvidence, getStudentEvidences, getEvidenceStudents } from '../../../services/evidences.js'
 import { getChildren } from '../../../services/children.js'
 import CompartirModal from '../../../components/CompartirModal/CompartirModal.jsx'
+import EvidenceTypeField from '../../../components/EvidenceTypeField/EvidenceTypeField.jsx'
+import EvidencePreview, { TypeBadge } from '../../../components/EvidencePreview/EvidencePreview.jsx'
+import { isEvidenceType, guessEvidenceType, EVIDENCE_TYPE_LABEL } from '../../../utils/evidenceType.js'
 import './Evidencias.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
 
-const VideoIcon = ({ size = 22 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-  </svg>
-)
 const DownloadIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -63,12 +61,39 @@ const Evidencias = () => {
   const [selectorAbierto,  setSelectorAbierto]  = useState(false)
   const [cargandoEstudiantes, setCargandoEstudiantes] = useState(false)
   const [errorEstudiantes, setErrorEstudiantes] = useState('')
-  const [form,             setForm]             = useState({ url: '', titulo: '' })
+  const [form,             setForm]             = useState({ url: '', titulo: '', type: '' })
+  const [tipoManual,       setTipoManual]       = useState(false)
   const [seleccionados,    setSeleccionados]    = useState([])
   const [guardando,        setGuardando]        = useState(false)
   const [errorGuardar,     setErrorGuardar]     = useState('')
+  const [tipoEdit,         setTipoEdit]         = useState(null)   // tipo elegido en el detalle (PATCH /evidences/:id)
+  const [guardandoTipo,    setGuardandoTipo]    = useState(false)
+  const [errorTipo,        setErrorTipo]        = useState('')
 
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const abrirDetalle = (e) => { setDetalle(e); setTipoEdit(null); setErrorTipo('') }
+  const cerrarDetalle = () => { setDetalle(null); setTipoEdit(null); setErrorTipo('') }
+
+  /* Corrige el tipo de una evidencia ya subida */
+  const guardarTipo = async () => {
+    setGuardandoTipo(true); setErrorTipo('')
+    try {
+      const actualizada = await updateEvidence(detalle.id, { type: tipoEdit })
+      const nuevoTipo = actualizada?.type ?? tipoEdit
+      setEvidencias(lista => lista.map(x => (String(x.id) === String(detalle.id) ? { ...x, type: nuevoTipo } : x)))
+      setDetalle(d => ({ ...d, type: nuevoTipo }))
+      setTipoEdit(null)
+    } catch (err) { setErrorTipo(err.message) }
+    finally { setGuardandoTipo(false) }
+  }
+
+  /* Al escribir el enlace se sugiere el tipo por la extensión (el usuario siempre puede cambiarlo) */
+  const cambiarUrl = (url) => setForm(p => {
+    const g = guessEvidenceType(url)
+    return { ...p, url, type: !tipoManual && g ? g : p.type }
+  })
+  const tipoSugerido = guessEvidenceType(form.url)
 
   /* Carga inicial: talleres → asistencias → estudiantes → evidencias */
   useEffect(() => {
@@ -122,7 +147,8 @@ const Evidencias = () => {
 
   const cerrarCrear = () => {
     setMostrarCrear(false)
-    setForm({ url: '', titulo: '' })
+    setForm({ url: '', titulo: '', type: '' })
+    setTipoManual(false)
     setSeleccionados([])
     setBusquedaEstudiante('')
     setSelectorAbierto(false)
@@ -164,6 +190,7 @@ const Evidencias = () => {
       const nueva = await createEvidence({
         title:      form.titulo.trim(),
         url:        form.url.trim(),
+        type:       form.type,
         studentIds: seleccionados,
       })
       setEvidencias(prev => [nueva, ...prev])
@@ -178,7 +205,9 @@ const Evidencias = () => {
   const puedeGuardar =
     form.titulo.trim().length >= 2 &&
     form.url.trim().startsWith('https://') &&
+    isEvidenceType(form.type) &&
     seleccionados.length > 0 &&
+    seleccionados.length <= 50 &&
     !guardando
 
   /* Abrir modal de compartir */
@@ -243,14 +272,12 @@ const Evidencias = () => {
           {evidencias.map(e => (
             <div key={String(e.id)} className="evid-card">
               <div className="evid-thumb" style={{ background: cardColor(e.id) }}>
-                <div className="evid-play">
-                  <VideoIcon />
-                </div>
+                <EvidencePreview evidence={e} variant="thumb" fondo={cardColor(e.id)} />
               </div>
               <div className="evid-card__body">
-                <p className="evid-card__titulo">{e.title}</p>
+                <p className="evid-card__titulo">{e.title} <TypeBadge type={e.type} /></p>
                 <p className="evid-card__fecha">{e.createdAt ? formatFecha(e.createdAt) : '—'}</p>
-                <button className="btn-ver-evid" onClick={() => setDetalle(e)}>
+                <button className="btn-ver-evid" onClick={() => abrirDetalle(e)}>
                   Ver detalle
                 </button>
               </div>
@@ -261,7 +288,7 @@ const Evidencias = () => {
 
       {/* ── Modal detalle ── */}
       {detalle && (
-        <div className="evid-overlay" onClick={() => setDetalle(null)} role="dialog" aria-modal="true">
+        <div className="evid-overlay" onClick={cerrarDetalle} role="dialog" aria-modal="true">
           <div className="evid-modal" onClick={e => e.stopPropagation()}>
 
             <div className="evid-modal__head">
@@ -269,28 +296,42 @@ const Evidencias = () => {
                 <p className="evid-modal__tag">EVIDENCIA</p>
                 <h2 className="evid-modal__titulo">{detalle.title}</h2>
               </div>
-              <button className="evid-modal__close" onClick={() => setDetalle(null)} aria-label="Cerrar">
+              <button className="evid-modal__close" onClick={cerrarDetalle} aria-label="Cerrar">
                 <XIcon />
               </button>
             </div>
 
-            <div className="evid-modal-thumb" style={{ background: cardColor(detalle.id) }}>
-              <div className="evid-play evid-play--lg">
-                <VideoIcon size={32} />
-              </div>
-            </div>
+            <EvidencePreview key={String(detalle.id)} evidence={detalle} variant="full" fondo={cardColor(detalle.id)} />
 
             <div className="evid-info-row">
+              <div className="evid-info-item">
+                <p className="evid-info-label">TIPO</p>
+                <p className="evid-info-valor">{EVIDENCE_TYPE_LABEL[detalle.type] ?? 'Sin tipo'}</p>
+              </div>
               <div className="evid-info-item">
                 <p className="evid-info-label">FECHA</p>
                 <p className="evid-info-valor">{detalle.createdAt ? formatFecha(detalle.createdAt) : '—'}</p>
               </div>
-              <div className="evid-info-item" style={{ gridColumn: '2 / -1' }}>
+              <div className="evid-info-item" style={{ gridColumn: '1 / -1' }}>
                 <p className="evid-info-label">ENLACE</p>
                 <p className="evid-info-valor" style={{ wordBreak: 'break-all', fontSize: '0.8rem' }}>
                   <a href={detalle.url} target="_blank" rel="noreferrer">{detalle.url}</a>
                 </p>
               </div>
+            </div>
+
+            <div className="evid-tipo-edit">
+              <EvidenceTypeField
+                idBase="evid-detalle-type"
+                value={tipoEdit ?? detalle.type ?? ''}
+                onChange={setTipoEdit}
+                error={errorTipo}
+              />
+              {tipoEdit && tipoEdit !== detalle.type && (
+                <button type="button" className="btn-compartir" disabled={guardandoTipo} onClick={guardarTipo}>
+                  {guardandoTipo ? 'Guardando…' : 'Guardar tipo'}
+                </button>
+              )}
             </div>
 
             <div className="evid-modal__acciones">
@@ -341,16 +382,24 @@ const Evidencias = () => {
                 <label className="evid-label">URL de la evidencia (https://…)</label>
                 <input
                   type="url" className="evid-input" value={form.url}
-                  onChange={e => upd('url', e.target.value)}
+                  onChange={e => cambiarUrl(e.target.value)}
                   placeholder="https://drive.google.com/..."
                 />
               </div>
               <div className="evid-campo evid-campo--full">
                 <label className="evid-label">Título</label>
                 <input
-                  type="text" className="evid-input" value={form.titulo}
+                  type="text" className="evid-input" value={form.titulo} maxLength={150}
                   onChange={e => upd('titulo', e.target.value)}
                   placeholder="Ej: Ritmo con tambor"
+                />
+              </div>
+              <div className="evid-campo evid-campo--full">
+                <EvidenceTypeField
+                  idBase="evid-type"
+                  value={form.type}
+                  sugerido={tipoSugerido}
+                  onChange={t => { setTipoManual(true); upd('type', t) }}
                 />
               </div>
               <div className="evid-campo evid-campo--full">

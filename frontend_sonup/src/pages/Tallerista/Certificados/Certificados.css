@@ -559,3 +559,10 @@
     justify-content: center;
   }
 }
+
+/* ── Acciones por estado (pending editable / valid revocable) ─────────────── */
+.modal-acciones--wrap { flex-wrap: wrap; }
+.cert-confirmar { background: var(--color-accent-light, #FFF0D8); border-radius: 12px; padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.7rem; font-size: var(--fs-sm); }
+.btn-peligro { background: #8C2B22; }
+.btn-peligro:hover:not(:disabled) { background: #70211a; }
+.cert-ayuda { display: block; font-size: 0.72rem; color: var(--color-text-muted); margin-bottom: 0.25rem; }

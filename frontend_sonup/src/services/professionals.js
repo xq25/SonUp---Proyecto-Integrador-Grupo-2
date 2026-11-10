@@ -6,3 +6,5 @@ export const getProfessionals = (filters = {}) => {
   const qs = params.toString()
   return api.get(`/professionals${qs ? `?${qs}` : ''}`)
 }
+
+export const getProfessional = (id) => api.get(`/professionals/${id}`)

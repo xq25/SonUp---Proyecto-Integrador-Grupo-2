@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth, destinoPorRol } from '../../context/AuthContext'
 import { getStudentAttendances } from '../../services/attendances.js'
-import { getWorkshops } from '../../services/workshops.js'
+import { getWorkshops, completeWorkshopsFromAttendances } from '../../services/workshops.js'
 import Logo from '../../components/Logo/Logo'
 import './MisClases.css'
 
@@ -55,14 +55,16 @@ function agruparPorMes(asistencias) {
 
 const MisClases = () => {
   const navigate = useNavigate()
-  const { session } = useAuth()
+  const { activeChildId, activeRole, logout } = useAuth()
+  const cerrarSesion = () => { logout(); navigate('/login', { replace: true }) }
   const [asistencias,  setAsistencias]  = useState([])
   const [talleresMapa, setTalleresMapa] = useState({})
   const [tallerActivo, setTallerActivo] = useState(null)
   const [cargando,     setCargando]     = useState(true)
 
   useEffect(() => {
-    const studentId = session?.saga?.childId
+    const studentId = activeChildId
+    if (!studentId) { setCargando(false); return } // sin id todavía (Saga despertando o cuenta sin enlazar)
     const load = async () => {
       try {
         const [asistRes, wsRes] = await Promise.allSettled([
@@ -74,7 +76,7 @@ const MisClases = () => {
         const sorted = [...asist].sort((a, b) => new Date(b.attendedAt) - new Date(a.attendedAt))
         setAsistencias(sorted)
 
-        const allWs = wsRes.status === 'fulfilled' ? wsRes.value : []
+        const allWs = await completeWorkshopsFromAttendances(wsRes.status === 'fulfilled' ? wsRes.value : [], asist)
         const mapa = {}
         allWs.forEach(w => { mapa[String(w.id)] = w })
         setTalleresMapa(mapa)
@@ -88,7 +90,7 @@ const MisClases = () => {
       finally { setCargando(false) }
     }
     load()
-  }, [session?.saga?.childId])
+  }, [activeChildId])
 
   const grupos = useMemo(() => agruparPorMes(asistencias), [asistencias])
 
@@ -97,7 +99,7 @@ const MisClases = () => {
 
       {/* Top bar */}
       <header className="mc-topbar">
-        <button className="mc-topbar__back" onClick={() => navigate('/dashboard')} aria-label="Volver al inicio">
+        <button className="mc-topbar__back" onClick={() => navigate(destinoPorRol([activeRole]))} aria-label="Volver al inicio">
           <ChevronLeftIcon />
         </button>
         <h1 className="mc-topbar__title">Mis clases</h1>
@@ -166,7 +168,7 @@ const MisClases = () => {
 
       {/* Footer */}
       <footer className="mc-footer">
-        <button className="mc-logout" onClick={() => navigate('/login')} aria-label="Cerrar sesión">
+        <button className="mc-logout" onClick={cerrarSesion} aria-label="Cerrar sesión">
           <ChevronLeftIcon /> Cerrar sesión
         </button>
       </footer>

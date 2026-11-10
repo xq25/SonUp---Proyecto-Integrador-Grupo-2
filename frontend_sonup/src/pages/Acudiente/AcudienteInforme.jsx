@@ -5,7 +5,7 @@ import { getChild } from '../../services/children.js'
 import { getStudentCategoryAverages } from '../../services/skills.js'
 import { getStudentAttendances } from '../../services/attendances.js'
 import { getStudentCredentials } from '../../services/credentials.js'
-import { getWorkshops } from '../../services/workshops.js'
+import { getWorkshops, completeWorkshopsFromAttendances } from '../../services/workshops.js'
 import CompartirModal from '../../components/CompartirModal/CompartirModal.jsx'
 import { createShareDocument, escapeHtml } from '../../utils/share-document.js'
 import './AcudienteInforme.css'
@@ -43,7 +43,8 @@ const formatFecha = (iso) =>
 
 const AcudienteInforme = () => {
   const navigate = useNavigate()
-  const { session } = useAuth()
+  const { activeChildId, logout } = useAuth()
+  const cerrarSesion = () => { logout(); navigate('/login', { replace: true }) }
 
   const [niño,        setNiño]        = useState(null)
   const [catAverages, setCatAverages] = useState([])
@@ -54,7 +55,8 @@ const AcudienteInforme = () => {
   const [mostrarCompartir, setMostrarCompartir] = useState(false)
 
   useEffect(() => {
-    const studentId = session?.saga?.childIds?.[0]
+    const studentId = activeChildId
+    if (!studentId) { setCargando(false); return } // sin id todavía (Saga despertando o cuenta sin enlazar)
     const load = async () => {
       try {
         const [childRes, catRes, asistRes, wsRes, credRes] = await Promise.allSettled([
@@ -73,7 +75,7 @@ const AcudienteInforme = () => {
           : []
         setAsistencias(asist)
 
-        const allWs = wsRes.status === 'fulfilled' ? wsRes.value : []
+        const allWs = await completeWorkshopsFromAttendances(wsRes.status === 'fulfilled' ? wsRes.value : [], asist)
         const mapa = {}
         allWs.forEach(w => { mapa[String(w.id)] = w })
         setTalleresMapa(mapa)
@@ -85,7 +87,7 @@ const AcudienteInforme = () => {
       finally { setCargando(false) }
     }
     load()
-  }, [session?.saga?.childIds])
+  }, [activeChildId])
 
   const nombre    = niño ? [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Estudiante' : 'Estudiante'
   const iniciales = niño
@@ -328,7 +330,7 @@ const AcudienteInforme = () => {
 
       {/* Footer */}
       <footer className="ai-footer">
-        <button className="ai-logout" onClick={() => navigate('/login')} aria-label="Cerrar sesión">
+        <button className="ai-logout" onClick={cerrarSesion} aria-label="Cerrar sesión">
           <ChevronLeftIcon /> Cerrar sesión
         </button>
       </footer>

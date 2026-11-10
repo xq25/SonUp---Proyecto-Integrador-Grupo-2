@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth, destinoPorRol } from '../../context/AuthContext'
 import { getStudentEvidences } from '../../services/evidences.js'
 import CompartirModal from '../../components/CompartirModal/CompartirModal.jsx'
+import EvidencePreview, { TypeBadge } from '../../components/EvidencePreview/EvidencePreview.jsx'
+import { EVIDENCE_TYPE_LABEL } from '../../utils/evidenceType.js'
 import './MisVideos.css'
 
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
@@ -18,13 +20,6 @@ const VolumeIcon = () => (
 const ChevronLeftIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <polyline points="15 18 9 12 15 6"/>
-  </svg>
-)
-
-const VideoCameraIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M23 7l-7 5 7 5V7z"/>
-    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
   </svg>
 )
 
@@ -59,28 +54,30 @@ const cardColor = (id) => CARD_COLORS[Number(String(id ?? '0').at(-1) ?? 0) % CA
 
 const MisVideos = () => {
   const navigate = useNavigate()
-  const { session } = useAuth()
+  const { activeChildId, activeRole, logout } = useAuth()
+  const cerrarSesion = () => { logout(); navigate('/login', { replace: true }) }
   const [evidencias,     setEvidencias]     = useState([])
   const [cargando,       setCargando]       = useState(true)
   const [selectedVideo,  setSelectedVideo]  = useState(null)
   const [mostrarCompartir, setMostrarCompartir] = useState(false)
 
   useEffect(() => {
-    const studentId = session?.saga?.childId
+    const studentId = activeChildId
+    if (!studentId) { setCargando(false); return } // sin id todavía (Saga despertando o cuenta sin enlazar)
     getStudentEvidences(studentId)
       .then(data => setEvidencias(data))
       .catch(() => {})
       .finally(() => setCargando(false))
-  }, [session?.saga?.childId])
+  }, [activeChildId])
 
   return (
     <div className="mv-page">
       {/* Top bar */}
       <header className="mv-topbar">
-        <button className="mv-topbar__back" onClick={() => navigate('/dashboard')} aria-label="Volver al inicio">
+        <button className="mv-topbar__back" onClick={() => navigate(destinoPorRol([activeRole]))} aria-label="Volver al inicio">
           <ChevronLeftIcon />
         </button>
-        <h1 className="mv-topbar__title">Mis videos</h1>
+        <h1 className="mv-topbar__title">Mis fotos y videos</h1>
         <button className="mv-topbar__sound" aria-label="Activar audio">
           <VolumeIcon />
         </button>
@@ -97,14 +94,9 @@ const MisVideos = () => {
             <CloseIcon />
           </button>
           <div className="mv-player__body">
-            <div className="mv-player__icon" aria-hidden="true">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 7l-7 5 7 5V7z"/>
-                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-              </svg>
-            </div>
+            <EvidencePreview key={String(selectedVideo.id)} evidence={selectedVideo} variant="full" fondo="transparent" />
             <h2 className="mv-player__title">{selectedVideo.title}</h2>
-            <p className="mv-player__sub">Evidencia multimedia</p>
+            <p className="mv-player__sub">{EVIDENCE_TYPE_LABEL[selectedVideo.type] ?? 'Evidencia multimedia'}</p>
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.75rem' }}>
               <a
                 href={selectedVideo.url}
@@ -130,13 +122,13 @@ const MisVideos = () => {
       {/* Grid de evidencias */}
       {cargando ? (
         <p style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted, #888)' }}>
-          Cargando videos…
+          Cargando fotos y videos…
         </p>
       ) : (
-        <section className="mv-content" aria-label="Lista de videos">
+        <section className="mv-content" aria-label="Lista de fotos y videos">
           {evidencias.length === 0 ? (
             <p style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted, #888)' }}>
-              Aún no hay videos registrados.
+              Aún no hay fotos ni videos registrados.
             </p>
           ) : (
             <div className="mv-grid" role="list">
@@ -149,12 +141,11 @@ const MisVideos = () => {
                   aria-label={`Ver ${e.title}`}
                 >
                   <div className="mv-card__thumb" style={{ backgroundColor: cardColor(e.id) }}>
-                    <div className="mv-card__circle" style={{ color: cardColor(e.id) }}>
-                      <VideoCameraIcon />
-                    </div>
+                    <EvidencePreview evidence={e} variant="thumb" fondo={cardColor(e.id)} />
                   </div>
                   <div className="mv-card__footer">
                     <p className="mv-card__titulo">{e.title}</p>
+                    <TypeBadge type={e.type} />
                   </div>
                 </button>
               ))}
@@ -177,7 +168,7 @@ const MisVideos = () => {
 
       {/* Footer */}
       <footer className="mv-footer">
-        <button className="mv-logout" onClick={() => navigate('/login')} aria-label="Cerrar sesión">
+        <button className="mv-logout" onClick={cerrarSesion} aria-label="Cerrar sesión">
           <ChevronLeftIcon /> Cerrar sesión
         </button>
       </footer>

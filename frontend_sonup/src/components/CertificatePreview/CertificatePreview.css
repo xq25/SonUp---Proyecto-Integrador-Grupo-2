@@ -1,0 +1,11 @@
+.certp { display: flex; flex-direction: column; gap: 0.6rem; font-family: 'Nunito', sans-serif; }
+.certp-media { width: 100%; border: 1px solid var(--color-border, #DFE5E2); border-radius: 12px; background: #fff; display: block; }
+img.certp-media { max-height: 420px; object-fit: contain; }
+.certp-media--doc { height: 420px; }
+.certp-vacio { font-size: var(--fs-sm, 0.9rem); color: var(--color-text-muted, #687974); background: var(--color-teal-light, #E2F2EF); border-radius: 12px; padding: 1rem; text-align: center; margin: 0; }
+.certp-link { align-self: flex-start; font-weight: 800; font-size: var(--fs-sm, 0.9rem); color: var(--color-primary, #176D65); text-decoration: none; }
+.certp-link:hover { text-decoration: underline; }
+.certp-estado { display: inline-block; font-size: 0.75rem; font-weight: 800; padding: 0.15rem 0.65rem; border-radius: 999px; }
+.certp-estado--pending { background: #FFF0D8; color: #A56A0C; }
+.certp-estado--valid   { background: var(--color-teal-light, #E2F2EF); color: var(--color-primary, #176D65); }
+.certp-estado--revoked { background: #FDF2F2; color: #8C2B22; }

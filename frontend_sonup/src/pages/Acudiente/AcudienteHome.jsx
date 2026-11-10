@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { getChild } from '../../services/children.js'
 import { getStudentAttendances } from '../../services/attendances.js'
-import { getWorkshops } from '../../services/workshops.js'
+import { getWorkshops, completeWorkshopsFromAttendances } from '../../services/workshops.js'
 import { getStudentCredentials } from '../../services/credentials.js'
 import './AcudienteHome.css'
 
@@ -46,7 +46,8 @@ const getColombiaCurrentTime = () =>
 
 const AcudienteHome = () => {
   const navigate = useNavigate()
-  const { session } = useAuth()
+  const { activeChildId, logout } = useAuth()
+  const cerrarSesion = () => { logout(); navigate('/login', { replace: true }) }
 
   const [niño,         setNiño]         = useState(null)
   const [asistencias,  setAsistencias]  = useState([])
@@ -61,7 +62,8 @@ const AcudienteHome = () => {
   const [horaColombia,     setHoraColombia]      = useState(getColombiaCurrentTime())
 
   useEffect(() => {
-    const studentId = session?.saga?.childIds?.[0]
+    const studentId = activeChildId
+    if (!studentId) { setCargando(false); return } // sin id todavía (Saga despertando o cuenta sin enlazar)
     const load = async () => {
       try {
         const [childRes, asistRes, wsRes, credRes] = await Promise.allSettled([
@@ -77,7 +79,7 @@ const AcudienteHome = () => {
         const sorted = [...asist].sort((a, b) => new Date(b.attendedAt) - new Date(a.attendedAt))
         setAsistencias(sorted)
 
-        const allWs = wsRes.status === 'fulfilled' ? wsRes.value : []
+        const allWs = await completeWorkshopsFromAttendances(wsRes.status === 'fulfilled' ? wsRes.value : [], asist)
         const mapa = {}
         allWs.forEach(w => { mapa[String(w.id)] = w })
         setTalleresMapa(mapa)
@@ -91,7 +93,7 @@ const AcudienteHome = () => {
       } finally { setCargando(false) }
     }
     load()
-  }, [session?.saga?.childIds])
+  }, [activeChildId])
 
   /* Nombre e iniciales del estudiante */
   const nombre = niño ? (niño.firstName || 'Joven') : 'Joven'
@@ -378,7 +380,7 @@ const AcudienteHome = () => {
 
       {/* Footer */}
       <footer className="acu-footer">
-        <button className="acu-logout" onClick={() => navigate('/login')}>
+        <button className="acu-logout" onClick={cerrarSesion}>
           <ChevronLeftIcon /> Cerrar sesión
         </button>
       </footer>

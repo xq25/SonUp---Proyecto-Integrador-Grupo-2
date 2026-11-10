@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import Logo from '../../components/Logo/Logo'
@@ -63,22 +63,19 @@ const FEATURES = [
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
 
+// El 400 trae en `error.details` qué campo falló; el 401 son credenciales incorrectas;
+// 429/502/503/504 ya llegan con su mensaje en español desde services/api.js.
 const errorLabel = (err) => {
-  const msg = err?.message ?? ''
-  if (msg.includes('429')) return 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.'
-  if (msg.includes('502') || msg.includes('503') || msg.includes('504'))
-    return 'El servicio no responde ahora mismo. Inténtalo de nuevo en unos segundos.'
-  if (msg.includes('401') || msg.toLowerCase().includes('incorrectos') || msg.toLowerCase().includes('inválid'))
-    return 'Correo o contraseña incorrectos.'
-  if (msg) return msg
-  return 'No se pudo iniciar sesión. Verifica tu conexión.'
+  if (err?.status === 401) return 'Correo o contraseña incorrectos.'
+  if (err?.status === 400) return err.message || 'Revisa el correo y la contraseña.'
+  return err?.message || 'No se pudo iniciar sesión. Verifica tu conexión.'
 }
 
 /* ── Component ──────────────────────────────────────────────────────────── */
 
 const Login = () => {
   const navigate              = useNavigate()
-  const { saveSession, destinoPorRol } = useAuth()
+  const { session, saveSession, destinoPorRol } = useAuth()
 
   const [email,        setEmail]        = useState('')
   const [password,     setPassword]     = useState('')
@@ -86,12 +83,16 @@ const Login = () => {
   const [loading,      setLoading]      = useState(false)
   const [error,        setError]        = useState('')
 
+  /* Con sesión vigente no se vuelve a pedir el login */
+  if (session) return <Navigate to={destinoPorRol(session.user?.roles ?? [])} replace />
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!email.trim() || !password) { setError('Escribe tu correo y tu contraseña.'); return }
     setLoading(true)
     setError('')
     try {
-      const data = await api.post('/auth/login', { email, password })
+      const data = await api.post('/auth/login', { email: email.trim(), password })
       saveSession(data)
       navigate(destinoPorRol(data.user?.roles ?? []))
     } catch (err) {

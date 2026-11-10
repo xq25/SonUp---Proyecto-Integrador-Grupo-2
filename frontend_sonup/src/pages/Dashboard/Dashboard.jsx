@@ -5,7 +5,7 @@ import Logo from '../../components/Logo/Logo'
 import { getChild } from '../../services/children.js'
 import { getStudentAttendances } from '../../services/attendances.js'
 import { getStudentCategoryAverages } from '../../services/skills.js'
-import { getWorkshops } from '../../services/workshops.js'
+import { getWorkshops, completeWorkshopsFromAttendances } from '../../services/workshops.js'
 import './Dashboard.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -67,7 +67,8 @@ const ChevronLeftIcon = () => (
 
 const Dashboard = () => {
   const navigate = useNavigate()
-  const { session } = useAuth()
+  const { activeChildId, logout } = useAuth()
+  const cerrarSesion = () => { logout(); navigate('/login', { replace: true }) }
 
   const [niño,         setNiño]         = useState(null)
   const [proximaClase, setProximaClase] = useState(null)
@@ -77,10 +78,11 @@ const Dashboard = () => {
   const [errorCarga,   setErrorCarga]   = useState('')
 
   useEffect(() => {
-    const studentId = session?.saga?.childId
+    const studentId = activeChildId
+    if (!studentId) { setCargando(false); return } // sin id todavía (Saga despertando o cuenta sin enlazar)
     const load = async () => {
       try {
-        const [child, attendances, categoryAverages, workshops] = await Promise.all([
+        const [child, attendances, categoryAverages, workshopsActivos] = await Promise.all([
           getChild(studentId),
           getStudentAttendances(studentId),
           getStudentCategoryAverages(studentId),
@@ -88,6 +90,8 @@ const Dashboard = () => {
         ])
 
         setNiño(child)
+        // Los talleres ya finalizados no vienen en el listado del joven: se completan por id
+        const workshops = await completeWorkshopsFromAttendances(workshopsActivos, attendances)
 
         setCalificaciones(
           (categoryAverages ?? []).map(cat => ({
@@ -110,7 +114,7 @@ const Dashboard = () => {
       finally { setCargando(false) }
     }
     load()
-  }, [session?.saga?.childId])
+  }, [activeChildId])
 
   const nombre = niño
     ? (niño.firstName || [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Joven')
@@ -118,7 +122,7 @@ const Dashboard = () => {
 
   const MODULOS = [
     { id: 'logros',       label: 'Lo que logré',    icon: <StarIcon />,     variante: 'accent',   ruta: '/joven/lo-que-logre'    },
-    { id: 'videos',       label: 'Mis videos',       icon: <VideoIcon />,    variante: 'default',  ruta: '/joven/mis-videos'       },
+    { id: 'videos',       label: 'Mis fotos y videos',       icon: <VideoIcon />,    variante: 'default',  ruta: '/joven/mis-videos'       },
     { id: 'certificados', label: 'Mis certificados', icon: <MedalIcon />,    variante: 'default',  ruta: '/joven/mis-certificados' },
     { id: 'clases',       label: 'Mis clases',       icon: <CalendarIcon />, variante: 'default',  ruta: '/joven/mis-clases'       },
   ]
@@ -203,7 +207,7 @@ const Dashboard = () => {
 
       {/* Pie */}
       <footer className="joven-footer">
-        <button className="joven-logout" onClick={() => navigate('/login')}>
+        <button className="joven-logout" onClick={cerrarSesion}>
           <ChevronLeftIcon /> Cerrar sesión
         </button>
       </footer>
