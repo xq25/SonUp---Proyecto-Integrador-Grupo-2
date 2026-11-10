@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "set BROWSER=chrome && vite"
+    "dev": "set BROWSER=chrome && vite",
+    "build": "vite build"
   },
   "keywords": [],
   "author": "",
