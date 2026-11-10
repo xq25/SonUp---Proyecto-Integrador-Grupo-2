@@ -55,6 +55,61 @@
   margin-top: 0.1rem;
 }
 
+/* ── Selector de jóvenes ─────────────────────────────────────────────────── */
+
+.acu-selector {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.acu-selector__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1rem 0.45rem 0.6rem;
+  border: 1.5px solid #DFE5E2;
+  border-radius: 999px;
+  background: #FFFFFF;
+  color: #687974;
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.acu-selector__btn:hover {
+  border-color: #176D65;
+  color: #176D65;
+}
+
+.acu-selector__btn--activo {
+  border-color: #176D65;
+  background: #E2F2EF;
+  color: #176D65;
+}
+
+.acu-selector__avatar {
+  width: clamp(22px, 3vw, 28px);
+  height: clamp(22px, 3vw, 28px);
+  border-radius: 50%;
+  background: #176D65;
+  color: #FFFFFF;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.acu-selector__btn--activo .acu-selector__avatar {
+  background: #10574F;
+}
+
+/* ── Calendario ── */
+
 .acu-cal-wrap {
   position: relative;
 }

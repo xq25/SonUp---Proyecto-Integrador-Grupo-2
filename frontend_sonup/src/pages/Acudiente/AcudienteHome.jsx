@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { getChild } from '../../services/children.js'
@@ -46,20 +46,34 @@ const getColombiaCurrentTime = () =>
 
 const AcudienteHome = () => {
   const navigate = useNavigate()
-  const { activeChildId, logout } = useAuth()
+  const { activeChildId, childIds, selectChild, logout } = useAuth()
   const cerrarSesion = () => { logout(); navigate('/login', { replace: true }) }
 
   const [niño,         setNiño]         = useState(null)
+  const [todosNiños,   setTodosNiños]   = useState({})   // { [id]: childData } para el selector
   const [asistencias,  setAsistencias]  = useState([])
   const [talleresMapa, setTalleresMapa] = useState({})
   const [credencial,   setCredencial]   = useState(null)
   const [cargando,     setCargando]     = useState(true)
+  const loadedRef = useRef(new Set())
 
   const [errorCarga,       setErrorCarga]        = useState('')
   const [claseIndex,       setClaseIndex]       = useState(0)
   const [confirmado,       setConfirmado]        = useState(false)
   const [mostrarCalendario,setMostrarCalendario] = useState(false)
   const [horaColombia,     setHoraColombia]      = useState(getColombiaCurrentTime())
+
+  /* Precarga nombres de todos los hijos para mostrar en el selector */
+  useEffect(() => {
+    childIds.forEach(id => {
+      const key = String(id)
+      if (loadedRef.current.has(key)) return
+      loadedRef.current.add(key)
+      getChild(id)
+        .then(c => setTodosNiños(prev => ({ ...prev, [key]: c })))
+        .catch(() => {})
+    })
+  }, [childIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const studentId = activeChildId
@@ -73,7 +87,10 @@ const AcudienteHome = () => {
           getStudentCredentials(studentId),
         ])
 
-        if (childRes.status === 'fulfilled') setNiño(childRes.value)
+        if (childRes.status === 'fulfilled') {
+          setNiño(childRes.value)
+          setTodosNiños(prev => ({ ...prev, [String(studentId)]: childRes.value }))
+        }
 
         const asist = asistRes.status === 'fulfilled' ? asistRes.value : []
         const sorted = [...asist].sort((a, b) => new Date(b.attendedAt) - new Date(a.attendedAt))
@@ -97,7 +114,6 @@ const AcudienteHome = () => {
 
   /* Nombre e iniciales del estudiante */
   const nombre = niño ? (niño.firstName || 'Joven') : 'Joven'
-  const apellido = niño?.lastName || ''
   const iniciales = [niño?.firstName, niño?.lastName]
     .filter(Boolean)
     .map(s => s[0].toUpperCase())
@@ -202,6 +218,39 @@ const AcudienteHome = () => {
           )}
         </div>
       </header>
+
+      {/* ── Selector de jóvenes (solo cuando hay más de uno) ── */}
+      {childIds.length > 1 && (
+        <div className="acu-selector" role="tablist" aria-label="Seleccionar joven">
+          {childIds.map(id => {
+            const c     = todosNiños[String(id)]
+            const label = c?.firstName ?? `Joven ${id}`
+            const inits = c
+              ? [c.firstName, c.lastName].filter(Boolean).map(s => s[0].toUpperCase()).join('')
+              : '?'
+            const activo = String(activeChildId) === String(id)
+            return (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={activo}
+                className={`acu-selector__btn${activo ? ' acu-selector__btn--activo' : ''}`}
+                onClick={() => {
+                  if (!activo) {
+                    selectChild(id)
+                    setClaseIndex(0)
+                    setConfirmado(false)
+                    setCargando(true)
+                  }
+                }}
+              >
+                <span className="acu-selector__avatar" aria-hidden="true">{inits}</span>
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {errorCarga && (
         <p role="alert" style={{ padding: '0.75rem 1rem', margin: '0 0 1rem', background: '#FDF2F2', borderRadius: '8px', color: '#8C2B22', fontSize: '0.875rem' }}>
