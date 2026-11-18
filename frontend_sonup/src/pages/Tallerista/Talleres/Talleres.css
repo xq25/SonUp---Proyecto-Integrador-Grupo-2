@@ -1248,3 +1248,58 @@
 .resultado-edit__texto:focus { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 .resultado-edit__acciones { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.35rem; }
 .resultado-edit__acciones a.btn-volver { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* ── Lista de sesiones dentro de tarjeta de taller ───────────────────────── */
+.taller-sesiones {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.6rem;
+}
+
+.taller-sesion-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: clamp(0.3rem, 0.8vw, 0.45rem) clamp(0.4rem, 1vw, 0.6rem);
+  background: var(--color-bg);
+  border-radius: 8px;
+}
+
+.taller-sesion-badge {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.taller-sesion-badge--planned     { background: #fff8e6; color: #8a6200; }
+.taller-sesion-badge--in_progress { background: var(--color-teal-light); color: var(--color-primary); }
+.taller-sesion-badge--finished    { background: #f0f0f0; color: #666; }
+
+.taller-sesion-tema {
+  flex: 1;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.taller-sesion-horario {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.taller-sesion-editar {
+  margin-left: auto;
+  flex-shrink: 0;
+}
