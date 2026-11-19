@@ -52,6 +52,57 @@ export const formatFecha = (value) =>
     ? new Date(value).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ })
     : 'Sin definir'
 
+/* ── Sesiones de taller ─────────────────────────────────────────────────── */
+
+export const SESSION_STATUS_LABEL = {
+  planned:     'Programada',
+  in_progress: 'En curso',
+  finished:    'Finalizada',
+}
+
+/** Fecha (yyyy-mm-dd) + hora (HH:mm) de Bogotá → ISO UTC. `null` si falta algo o no es válida. */
+export const bogotaToISO = (fecha, hora) => {
+  if (!fecha || !hora) return null
+  const d = new Date(`${fecha}T${hora}:00-05:00`)
+  return Number.isNaN(d.getTime()) ? null : d.toISOString()
+}
+
+/** Hora legible en Bogotá (p. ej. «3:00 p. m.»). */
+export const formatHora = (value) =>
+  value
+    ? new Date(value).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit', timeZone: TZ })
+    : ''
+
+/** Lista de pasos → texto `steps` de la API («1. …\n2. …»). */
+export const stepsToText = (pasos = []) =>
+  pasos.map((p, i) => `${i + 1}. ${p}`).join('\n')
+
+/** Texto `steps` de la API → lista de pasos (sin la numeración). */
+export const textToSteps = (texto) =>
+  (texto ?? '')
+    .split('\n')
+    .map(l => l.trim().replace(/^\d+\s*[.)-]\s*/, ''))
+    .filter(Boolean)
+
+/** Lista de materiales → texto `materials` de la API (uno por línea). */
+export const materialsToText = (materiales = []) => materiales.join('\n')
+
+/** Texto `materials` de la API → lista (acepta salto de línea o coma, como en Planeación). */
+export const textToMaterials = (texto) =>
+  (texto ?? '')
+    .split(/[\n,]/)
+    .map(m => m.trim())
+    .filter(Boolean)
+
+const porInicio = (a, b) => new Date(a.startsAt) - new Date(b.startsAt)
+
+/** Sesión en curso del taller, si la hay (solo puede haber una). */
+export const sesionEnCurso = (sesiones = []) => sesiones.find(s => s.status === 'in_progress') ?? null
+
+/** Siguiente sesión programada (la de inicio más temprano), aunque su hora aún no haya llegado. */
+export const siguienteProgramada = (sesiones = []) =>
+  [...sesiones].filter(s => s.status === 'planned').sort(porInicio)[0] ?? null
+
 export const nombreDe = (persona, respaldo = '') =>
   [persona?.firstName, persona?.lastName].filter(Boolean).join(' ')
   || persona?.fullName

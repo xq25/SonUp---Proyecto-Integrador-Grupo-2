@@ -395,7 +395,7 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
                   <button
                     type="button" className="plan-btn plan-btn--primario"
                     disabled={!listo || busy}
-                    title={listo ? 'Pasa el taller a «En curso»' : 'Necesita al menos una habilidad y fecha de inicio'}
+                    title={listo ? 'Pasa el taller a «En curso»' : 'Necesita al menos una habilidad, fecha de inicio y una sesión'}
                     onClick={() => setConfirmar({ id, accion: 'activar' })}
                   >
                     Activar taller

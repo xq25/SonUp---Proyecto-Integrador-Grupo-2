@@ -7,7 +7,11 @@ import { createSession, updateSession, startSession, finishSession, getSessionAt
 import { createEvaluation, deleteEvaluation, getEvaluationScales, getAttendanceEvaluations } from '../../../services/evaluations.js'
 import { createEvidence } from '../../../services/evidences.js'
 import { isEvidenceType, guessEvidenceType } from '../../../utils/evidenceType.js'
-import { toBogotaDateInput, toBogotaTimeInput, todayBogota, nombreDe } from '../../../utils/workshops.js'
+import {
+  toBogotaDateInput, toBogotaTimeInput, todayBogota, nombreDe, bogotaToISO, formatFecha, formatHora,
+  stepsToText, textToSteps, materialsToText, textToMaterials,
+} from '../../../utils/workshops.js'
+import { isYoutubeUrl, toYoutubeEmbed } from '../../../utils/youtube.js'
 import EvidenceTypeField from '../../../components/EvidenceTypeField/EvidenceTypeField.jsx'
 import CompartirModal from '../../../components/CompartirModal/CompartirModal.jsx'
 import { createShareDocument } from '../../../utils/share-document.js'
@@ -26,7 +30,7 @@ const FASES = [
 ]
 
 const TITULOS = {
-  1: { h: 'Datos de la sesión',        sub: 'Define el tema, la hora de inicio y fin, y el objetivo de la sesión.' },
+  1: { h: 'Datos de la sesión',        sub: 'Define el tema, la fecha y hora de inicio, el objetivo y los materiales de la sesión.' },
   2: { h: 'Toma de asistencia',        sub: 'Registra quiénes participaron en la sesión.' },
   3: { h: 'Valoraciones y evidencias', sub: 'Valora los logros y adjunta evidencias de la actividad.' },
 }
@@ -53,24 +57,25 @@ const Stepper = ({ fase }) => (
 const iniciales = (nombre) =>
   nombre.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
 
-const toISOBogota = (fecha, hora) => {
-  if (!fecha || !hora) return null
-  const d = new Date(`${fecha}T${hora}:00-05:00`)
-  return Number.isNaN(d.getTime()) ? null : d.toISOString()
-}
-
 /**
  * Taller activo: datos de la sesión (paso 1) → asistencia (paso 2) → valoraciones (paso 3) → finalizar sesión.
  * Props:
- *   session: WorkshopSession | null  (null = crear nueva, 'planned' = iniciar, 'in_progress' = continuar desde paso 2)
+ *   session: WorkshopSession | null
+ *     - null          → sesión nueva: formulario en blanco
+ *     - 'planned'     → sesión por iniciar: se muestran sus datos para revisarlos y luego iniciarla
+ *     - 'in_progress' → continuar: va directo al paso 2 (o al paso 1 con `modoEditar`)
+ *   modoEditar: abre el paso 1 para corregir los datos de una sesión programada o en curso
+ *   otraEnCurso: sesión del taller que ya está en curso (si es otra): impide iniciar esta
  *   onSesionFinalizada(): llamado tras finalizar la sesión (vuelve a la lista y recarga sesiones)
  */
-const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, onSesionFinalizada }) => {
+const SesionTaller = ({ taller, session = null, modoEditar = false, otraEnCurso = null, onVolver, onSesionFinalizada }) => {
   const workshopId   = String(taller.id)
-  const estaEnCurso  = session?.status === 'in_progress'
 
-  const [fase, setFase]                   = useState(estaEnCurso && !modoEditar ? 2 : 1)
   const [sessionActual, setSessionActual] = useState(session)
+  // Se deriva de la sesión guardada (no de la prop): tras iniciarla, el horario queda fijo
+  const estaEnCurso  = sessionActual?.status === 'in_progress'
+  const esNueva      = !sessionActual?.id
+  const [fase, setFase]                   = useState(session?.status === 'in_progress' && !modoEditar ? 2 : 1)
 
   /* ── Datos cargados ── */
   const [estudiantes, setEstudiantes] = useState([])
@@ -89,14 +94,15 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
         horaInicio: session.startsAt ? toBogotaTimeInput(new Date(session.startsAt)) : toBogotaTimeInput(new Date()),
         tema:       session.topic     || '',
         objetivo:   session.objective || '',
-        pasos:      [],
-        materiales: [],
+        pasos:      textToSteps(session.steps),
+        materiales: textToMaterials(session.materials),
       }
     }
+    // Sesión nueva: todo en blanco; solo se sugiere la fecha (hoy, o el inicio del taller si es futuro)
     const inicio = toBogotaDateInput(taller.startsAt)
     return {
       fecha:      inicio && inicio > hoy ? inicio : hoy,
-      horaInicio: toBogotaTimeInput(new Date()),
+      horaInicio: '',
       tema:       '',
       objetivo:   '',
       pasos:      [],
@@ -136,6 +142,7 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
   const [confirmandoFin, setConfirmandoFin] = useState(false)
   const [finalizando, setFinalizando]       = useState(false)
   const [errorFin, setErrorFin]             = useState('')
+  const [fin, setFin]                       = useState({ fecha: '', hora: '' })   // hora real de fin (Bogotá)
   const [mostrarCompartir, setMostrarCompartir] = useState(false)
   const [archivoResumen, setArchivoResumen] = useState(null)
 
@@ -196,51 +203,91 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
   const agregarPaso     = () => { if (nuevoPaso.trim()) { setSesion(s => ({ ...s, pasos: [...s.pasos, nuevoPaso.trim()] })); setNuevoPaso('') } }
   const agregarMaterial = () => { if (nuevoMaterial.trim()) { setSesion(s => ({ ...s, materiales: [...s.materiales, nuevoMaterial.trim()] })); setNuevoMaterial('') } }
 
-  const esFuturo = sesion.fecha && sesion.horaInicio
-    ? new Date(`${sesion.fecha}T${sesion.horaInicio}:00-05:00`) > new Date()
-    : false
+  const inicioISO = bogotaToISO(sesion.fecha, sesion.horaInicio)
+  const esFuturo  = inicioISO ? new Date(inicioISO) > new Date() : false
+  const fechaMin  = toBogotaDateInput(taller.startsAt) || undefined
+  const temaValido = sesion.tema.trim().length >= 2
 
-  const continuar = async () => {
-    if (!sesion.tema.trim()) {
-      setErrorContinuar('El tema es obligatorio.')
+  /** Pone fecha y hora actuales (para dictar ya una sesión programada para más tarde). */
+  const usarAhora = () => {
+    const ahora = new Date()
+    setSesion(s => ({ ...s, fecha: toBogotaDateInput(ahora), horaInicio: toBogotaTimeInput(ahora) }))
+    setErrorContinuar('')
+  }
+
+  /** Por qué no se puede iniciar ahora (null si sí se puede). */
+  const motivoNoIniciar = estaEnCurso ? null
+    : otraEnCurso ? `Ya hay una sesión en curso en este taller («${otraEnCurso.topic}»). Finalízala primero.`
+    : esFuturo ? `La hora de inicio todavía no llega (${formatFecha(inicioISO)}, ${formatHora(inicioISO)}). Si la sesión se dicta ahora, usa la fecha y hora actuales.`
+    : null
+
+  /** Cuerpo de la sesión para la API. Incluye el paso o material escrito y aún no agregado. */
+  const cuerpoSesion = () => {
+    const pasos      = [...sesion.pasos, nuevoPaso.trim()].filter(Boolean)
+    const materiales = [...sesion.materiales, nuevoMaterial.trim()].filter(Boolean)
+    if (nuevoPaso.trim() || nuevoMaterial.trim()) {
+      setSesion(s => ({ ...s, pasos, materiales }))
+      setNuevoPaso(''); setNuevoMaterial('')
+    }
+    // Vacío se envía como "": la API lo guarda como null (así también se borra un campo)
+    return {
+      topic:     sesion.tema.trim(),
+      objective: sesion.objetivo.trim(),
+      steps:     stepsToText(pasos),
+      materials: materialsToText(materiales),
+    }
+  }
+
+  const cargarAsistenciasDe = async (sessId) => {
+    const atts = await getSessionAttendances(sessId)
+    setAsistencias(atts.map(a => ({ ...a, id: String(a.id), studentId: String(a.studentId) })))
+  }
+
+  /**
+   * Guarda la sesión y, si `iniciar`, la inicia y pasa a la asistencia.
+   * Sin `iniciar` solo la deja programada y vuelve a la lista.
+   */
+  const continuar = async (iniciar) => {
+    if (!temaValido) {
+      setErrorContinuar('El tema es obligatorio (mínimo 2 caracteres).')
       return
     }
-    if (!estaEnCurso && (!sesion.fecha || !sesion.horaInicio)) {
-      setErrorContinuar('Completa fecha y hora de inicio.')
+    if (!estaEnCurso && !inicioISO) {
+      setErrorContinuar('Completa la fecha y la hora de inicio.')
+      return
+    }
+    if (iniciar && motivoNoIniciar) {
+      setErrorContinuar(motivoNoIniciar)
       return
     }
     setContinuando(true)
     setErrorContinuar('')
     try {
-      const body = { topic: sesion.tema.trim() }
-      if (sesion.objetivo.trim()) body.objective = sesion.objetivo.trim()
+      const body = cuerpoSesion()
 
       let sess = sessionActual
       if (estaEnCurso) {
-        // En curso: solo actualizar contenido (startsAt fijo en backend, daría 409)
-        await updateSession(sess.id, body)
-        const atts = await getSessionAttendances(sess.id)
-        setAsistencias(atts.map(a => ({ ...a, id: String(a.id), studentId: String(a.studentId) })))
+        // En curso: solo el contenido (la hora de inicio ya es fija; enviarla daría 409)
+        sess = await updateSession(sess.id, body)
+        setSessionActual(sess)
+        await cargarAsistenciasDe(sess.id)
         setFase(2)
         return
       }
 
-      body.startsAt = toISOBogota(sesion.fecha, sesion.horaInicio)
-      if (sess?.id) {
-        await updateSession(sess.id, body)
-      } else {
-        sess = await createSession(workshopId, body)
-      }
+      body.startsAt = inicioISO
+      sess = sess?.id ? await updateSession(sess.id, body) : await createSession(workshopId, body)
+      // Se guarda ya: si iniciar falla (409), el reintento edita esta misma sesión en vez de crear otra
+      setSessionActual(sess)
 
-      if (esFuturo) {
+      if (!iniciar) {
         onVolver()
         return
       }
 
       sess = await startSession(sess.id)
       setSessionActual(sess)
-      const atts = await getSessionAttendances(sess.id)
-      setAsistencias(atts.map(a => ({ ...a, id: String(a.id), studentId: String(a.studentId) })))
+      await cargarAsistenciasDe(sess.id)
       setFase(2)
     } catch (err) {
       setErrorContinuar(err.message)
@@ -428,11 +475,27 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
   }
 
   /* ── Finalizar sesión ── */
+  const abrirFinalizar = () => {
+    const ahora = new Date()
+    setFin({ fecha: toBogotaDateInput(ahora), hora: toBogotaTimeInput(ahora) })
+    setErrorFin('')
+    setConfirmandoFin(true)
+  }
+
+  const finISO = bogotaToISO(fin.fecha, fin.hora)
+  /** Mismas reglas que el backend: posterior al inicio y no futuro. */
+  const errorHoraFin = !finISO ? 'Indica la fecha y la hora real de fin.'
+    : sessionActual?.startsAt && new Date(finISO) <= new Date(sessionActual.startsAt)
+      ? `El fin debe ser posterior al inicio (${formatFecha(sessionActual.startsAt)}, ${formatHora(sessionActual.startsAt)}).`
+    : new Date(finISO) > new Date() ? 'El fin real no puede ser una hora futura.'
+    : ''
+
   const finalizarSesion = async () => {
+    if (errorHoraFin) { setErrorFin(errorHoraFin); return }
     setFinalizando(true)
     setErrorFin('')
     try {
-      await finishSession(sessionActual.id)
+      await finishSession(sessionActual.id, finISO)
       onSesionFinalizada?.()
     } catch (err) {
       setErrorFin(err.message)
@@ -491,11 +554,14 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
                   <p className="sesion-form__sub">
                     {estaEnCurso
                       ? 'Sesión en curso · la hora de inicio está fija. Solo puedes editar el contenido.'
-                      : sessionActual?.id
-                        ? 'Sesión programada · edita y guarda para iniciarla.'
-                        : 'Registra la sesión para empezar.'}
+                      : !esNueva
+                        ? 'Sesión programada · revisa sus datos, guárdalos o inicia la sesión.'
+                        : 'Nueva sesión · completa los datos para programarla o iniciarla ya.'}
                   </p>
                 </div>
+                <span className={`sesion-modo sesion-modo--${estaEnCurso ? 'curso' : esNueva ? 'nueva' : 'programada'}`}>
+                  {estaEnCurso ? 'En curso' : esNueva ? 'Nueva' : 'Programada'}
+                </span>
               </div>
 
               <div className="form-fila-4">
@@ -506,28 +572,33 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
                 <div className="form-campo">
                   <label className="form-label" htmlFor="ses-fecha">Fecha *</label>
                   <input id="ses-fecha" type="date" className="form-input" value={sesion.fecha}
-                    min={toBogotaDateInput(taller.startsAt) || undefined} max={todayBogota()}
+                    min={fechaMin}
                     disabled={estaEnCurso}
-                    onChange={e => setSesion(s => ({ ...s, fecha: e.target.value }))} />
+                    onChange={e => { setSesion(s => ({ ...s, fecha: e.target.value })); setErrorContinuar('') }} />
                 </div>
                 <div className="form-campo">
                   <label className="form-label" htmlFor="ses-hi">Hora inicio *</label>
                   <input id="ses-hi" type="time" className="form-input" value={sesion.horaInicio}
                     disabled={estaEnCurso}
-                    onChange={e => setSesion(s => ({ ...s, horaInicio: e.target.value }))} />
+                    onChange={e => { setSesion(s => ({ ...s, horaInicio: e.target.value })); setErrorContinuar('') }} />
                 </div>
               </div>
+              {!estaEnCurso && (
+                <button type="button" className="btn-ahora" onClick={usarAhora}>
+                  Usar fecha y hora actuales
+                </button>
+              )}
 
               <div className="form-campo">
                 <label className="form-label" htmlFor="ses-tema">Tema de la sesión *</label>
                 <input id="ses-tema" type="text" className="form-input" value={sesion.tema}
-                  placeholder="Ej: Ritmo con palmas y tambor"
+                  maxLength={150} placeholder="Ej: Ritmo con palmas y tambor"
                   onChange={e => setSesion(s => ({ ...s, tema: e.target.value }))} />
               </div>
 
               <div className="form-campo">
                 <label className="form-label" htmlFor="ses-obj">Objetivo</label>
-                <textarea id="ses-obj" className="form-textarea" rows={3} value={sesion.objetivo}
+                <textarea id="ses-obj" className="form-textarea" rows={3} maxLength={1000} value={sesion.objetivo}
                   onChange={e => setSesion(s => ({ ...s, objetivo: e.target.value }))} />
               </div>
 
@@ -571,10 +642,28 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
               </div>
 
               {errorContinuar && <p className="talleres-estado talleres-estado--error" role="alert">{errorContinuar}</p>}
-              <button type="button" className="btn-publicar" onClick={continuar}
-                disabled={continuando || !sesion.tema.trim() || (!estaEnCurso && (!sesion.fecha || !sesion.horaInicio))}>
-                {continuando ? 'Guardando…' : estaEnCurso ? 'Guardar y continuar' : esFuturo ? 'Guardar sesión' : 'Guardar e iniciar sesión'}
-              </button>
+              {!errorContinuar && motivoNoIniciar && inicioISO && (
+                <p className="talleres-estado talleres-estado--aviso sesion-aviso" role="status">{motivoNoIniciar}</p>
+              )}
+
+              {estaEnCurso ? (
+                <button type="button" className="btn-publicar" onClick={() => continuar(true)}
+                  disabled={continuando || !temaValido}>
+                  {continuando ? 'Guardando…' : 'Guardar y continuar'}
+                </button>
+              ) : (
+                <div className="sesion-acciones">
+                  <button type="button" className="btn-volver sesion-acciones__sec" onClick={() => continuar(false)}
+                    disabled={continuando || !temaValido || !inicioISO}>
+                    {continuando ? 'Guardando…' : esNueva ? 'Guardar como programada' : 'Guardar cambios'}
+                  </button>
+                  <button type="button" className="btn-publicar sesion-acciones__pri" onClick={() => continuar(true)}
+                    disabled={continuando || !temaValido || !inicioISO || Boolean(motivoNoIniciar)}
+                    title={motivoNoIniciar ?? undefined}>
+                    {continuando ? 'Guardando…' : 'Guardar e iniciar sesión'}
+                  </button>
+                </div>
+              )}
             </div>
 
             <aside className="vista-previa">
@@ -586,10 +675,20 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
                 <div className="vp-fila"><span className="vp-label">Fecha</span><span className="vp-valor">{fechaDisplay}</span></div>
                 <div className="vp-fila">
                   <span className="vp-label">Horario</span>
-                  <span className="vp-valor vp-valor--teal">{sesion.horaInicio || '—'}</span>
+                  <span className="vp-valor vp-valor--teal">{inicioISO ? formatHora(inicioISO) : '—'}</span>
                 </div>
                 <div className="vp-fila"><span className="vp-label">Participantes</span><span className="vp-valor vp-valor--teal">{total} inscritos</span></div>
+                <div className="vp-fila"><span className="vp-label">Pasos</span><span className="vp-valor">{sesion.pasos.length}</span></div>
               </div>
+              {sesion.materiales.length > 0 && (
+                <>
+                  <hr className="vista-previa__sep" />
+                  <p className="vp-label">Materiales que deben llevar</p>
+                  <ul className="vp-materiales" role="list">
+                    {sesion.materiales.map((m, i) => <li key={i}>{m}</li>)}
+                  </ul>
+                </>
+              )}
             </aside>
           </>
         )}
@@ -653,9 +752,9 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
               {erroresAsistencia.length > 0 && asistencias.length > 0 && (
                 <button type="button" className="btn-volver" onClick={() => irAValoraciones()}>Continuar con los registrados</button>
               )}
-              {(!estaEnCurso || modoEditar) && (
-                <button type="button" className="btn-volver" onClick={() => setFase(1)}>Volver a datos</button>
-              )}
+              <button type="button" className="btn-volver" onClick={() => setFase(1)}>
+                {estaEnCurso ? 'Editar datos de la sesión' : 'Volver a datos'}
+              </button>
             </aside>
           </>
         )}
@@ -777,9 +876,12 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
                     <input id="evi-url" className="form-input" inputMode="url" placeholder="https://…" value={evi.url}
                       onChange={e => cambiarUrl(e.target.value)} />
                     {erroresCampoEvi.url && <small className="campo-error" role="alert">{erroresCampoEvi.url}</small>}
-                    {/youtube\.com\/embed\//i.test(evi.url) && (
-                      <iframe src={evi.url} width="100%" height="180" allowFullScreen title="Vista previa"
-                        style={{ borderRadius: '8px', border: 'none', marginTop: '0.5rem', display: 'block' }} />
+                    {isYoutubeUrl(evi.url) && (
+                      <>
+                        <iframe className="evi-youtube" src={toYoutubeEmbed(evi.url)} allowFullScreen title="Vista previa del video"
+                          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
+                        <small className="evi-youtube__nota">Se guardará como {toYoutubeEmbed(evi.url)}</small>
+                      </>
                     )}
                   </div>
                   <div className="form-campo">
@@ -830,7 +932,7 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
               <div className="val-footer">
                 <button type="button" className="btn-volver" onClick={() => setFase(2)}>Volver a asistencia</button>
                 <button type="button" className="btn-publicar taller-btn-cierre"
-                  onClick={() => { setConfirmandoFin(true); setErrorFin('') }}>
+                  onClick={abrirFinalizar}>
                   Finalizar sesión
                 </button>
               </div>
@@ -844,9 +946,33 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, onVolver, on
                       <> Tienes <strong>cambios sin guardar</strong>: guárdalos antes.</>
                     )}
                   </p>
-                  {errorFin && <p className="talleres-estado talleres-estado--error" role="alert">{errorFin}</p>}
+                  <p className="fin-aviso">Las valoraciones se suman al progreso de cada joven al finalizar la sesión.</p>
+                  <fieldset className="fin-hora">
+                    <legend className="form-label">Hora real de fin</legend>
+                    <div className="fin-hora__campos">
+                      <label className="fin-hora__campo">
+                        <span>Fecha</span>
+                        <input type="date" className="form-input" value={fin.fecha}
+                          min={toBogotaDateInput(sessionActual?.startsAt) || undefined} max={todayBogota()}
+                          onChange={e => { setFin(f => ({ ...f, fecha: e.target.value })); setErrorFin('') }} />
+                      </label>
+                      <label className="fin-hora__campo">
+                        <span>Hora</span>
+                        <input type="time" className="form-input" value={fin.hora}
+                          onChange={e => { setFin(f => ({ ...f, hora: e.target.value })); setErrorFin('') }} />
+                      </label>
+                      <button type="button" className="btn-ahora fin-hora__ahora" onClick={abrirFinalizar}>Ahora</button>
+                    </div>
+                    <small className="fin-hora__ayuda">
+                      Inició {sessionActual?.startsAt ? `el ${formatFecha(sessionActual.startsAt)} a las ${formatHora(sessionActual.startsAt)}` : '—'} ·
+                      Si terminó más tarde de lo previsto y pisa la siguiente sesión, esa tendrá que corregir su hora de inicio.
+                    </small>
+                  </fieldset>
+                  {(errorFin || errorHoraFin) && (
+                    <p className="talleres-estado talleres-estado--error" role="alert">{errorFin || errorHoraFin}</p>
+                  )}
                   <div className="taller-item__acciones">
-                    <button type="button" className="btn-publicar btn-publicar--sm" disabled={finalizando} onClick={finalizarSesion}>
+                    <button type="button" className="btn-publicar btn-publicar--sm" disabled={finalizando || Boolean(errorHoraFin)} onClick={finalizarSesion}>
                       {finalizando ? 'Finalizando…' : 'Sí, finalizar sesión'}
                     </button>
                     <button type="button" className="btn-volver" onClick={() => setConfirmandoFin(false)}>Volver</button>

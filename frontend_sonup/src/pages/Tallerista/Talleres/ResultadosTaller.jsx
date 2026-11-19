@@ -3,18 +3,26 @@ import { Link } from 'react-router-dom'
 import { useAuth, ROLES } from '../../../context/AuthContext'
 import { getChildren } from '../../../services/children.js'
 import { getWorkshopSkills } from '../../../services/workshops.js'
-import { getSkills } from '../../../services/skills.js'
+import { getSkills, getStudentSkills } from '../../../services/skills.js'
 import { getWorkshopAttendances, updateAttendance } from '../../../services/attendances.js'
 import { getWorkshopSessions } from '../../../services/sessions.js'
 import { getEvaluationScales, getAttendanceEvaluations } from '../../../services/evaluations.js'
-import { formatFecha, nombreDe } from '../../../utils/workshops.js'
+import { formatFecha, formatHora, nombreDe } from '../../../utils/workshops.js'
 import './Talleres.css'
 
 /**
- * Taller finalizado: resultados agrupados por sesión.
- * Columnas = habilidades del taller; celdas = escala I/EP/NR/L evaluada en esa sesión.
+ * Taller finalizado: resultados.
+ *  1. Calificación acumulada de cada joven en las habilidades del taller (`GET /students/:id/skills`).
+ *     Es la que cuenta: se calcula con las sesiones finalizadas, en orden de inicio.
+ *  2. Detalle por sesión, en orden de fecha: la escala valorada en esa sesión y la observación.
  * Solo se puede corregir la observación de cada asistencia.
  */
+const EscalaChip = ({ escala }) => (
+  escala
+    ? <span className={`val-btn val-btn--sel val-btn--${String(escala.code).toLowerCase()} resultado-escala`} title={escala.name}>{escala.code}</span>
+    : <span className="resultado-vacio" aria-label="Sin valorar">—</span>
+)
+
 const ResultadosTaller = ({ taller, onVolver }) => {
   const [datos, setDatos]     = useState(null)
   const [error, setError]     = useState('')
@@ -49,43 +57,60 @@ const ResultadosTaller = ({ taller, onVolver }) => {
           getChildren(), getWorkshopSkills(taller.id), getSkills(),
           getEvaluationScales(), getWorkshopAttendances(taller.id), getWorkshopSessions(taller.id),
         ])
-        const evs = await Promise.allSettled(atts.map(a => getAttendanceEvaluations(a.id)))
+        const estudiantesIds = [...new Set(atts.map(a => String(a.studentId)))]
+        const [evs, acumuladas] = await Promise.all([
+          Promise.allSettled(atts.map(a => getAttendanceEvaluations(a.id))),
+          Promise.allSettled(estudiantesIds.map(id => getStudentSkills(id))),
+        ])
         if (!vivo) return
 
-        const escalaPorId   = new Map(escs.map(e => [String(e.id), e]))
-        const skillNombre   = (ws) => skills.find(s => String(s.id) === String(ws.skillId))?.name ?? `Habilidad ${ws.skillId}`
-        const columnas      = wSkills.map(ws => ({ id: String(ws.id), nombre: skillNombre(ws) }))
-        const sessionById   = new Map(sessions.map(s => [String(s.id), s]))
+        const escalaPorId = new Map(escs.map(e => [String(e.id), e]))
+        const skillNombre = (ws) => skills.find(s => String(s.id) === String(ws.skillId))?.name ?? `Habilidad ${ws.skillId}`
+        const columnas    = wSkills.map(ws => ({ id: String(ws.id), skillId: String(ws.skillId), nombre: skillNombre(ws) }))
+        const sessionById = new Map(sessions.map(s => [String(s.id), s]))
+        const nombreJoven = (id) => nombreDe(kids.find(k => String(k.id ?? k.childId) === String(id)), `Estudiante ${id}`)
 
-        // Group attendances by sessionId
+        /* 1. Calificación acumulada por joven y habilidad */
+        const acumulado = estudiantesIds.map((id, i) => {
+          const r = acumuladas[i]
+          const porSkill = {}
+          if (r.status === 'fulfilled') {
+            ;(r.value ?? []).forEach(c => { porSkill[String(c.skillId)] = c.scale ?? escalaPorId.get(String(c.evaluationScaleId)) })
+          }
+          return { studentId: id, nombre: nombreJoven(id), porSkill, fallo: r.status === 'rejected' }
+        }).sort((x, y) => x.nombre.localeCompare(y.nombre))
+
+        /* 2. Asistencias agrupadas por sesión */
         const grupos = {}
         atts.forEach((a, i) => {
           const sessId = String(a.sessionId ?? 'sin-sesion')
-          if (!grupos[sessId]) grupos[sessId] = []
-          const kid        = kids.find(k => String(k.id ?? k.childId) === String(a.studentId))
-          const lista      = evs[i].status === 'fulfilled' ? evs[i].value : []
+          const lista  = evs[i].status === 'fulfilled' ? evs[i].value : []
           const porHabilidad = {}
           lista.forEach(ev => { porHabilidad[String(ev.workshopSkillId)] = escalaPorId.get(String(ev.evaluationScaleId)) })
-          grupos[sessId].push({
+          ;(grupos[sessId] ??= []).push({
             id:          String(a.id),
             studentId:   String(a.studentId),
-            nombre:      nombreDe(kid, `Estudiante ${a.studentId}`),
+            nombre:      nombreJoven(a.studentId),
             observacion: a.observation || '',
             porHabilidad,
             sinEvaluaciones: evs[i].status === 'rejected',
           })
         })
 
-        const sesiones = Object.entries(grupos).map(([sessId, filas]) => {
-          const sess = sessionById.get(sessId)
-          return {
-            id:    sessId,
-            topic: sess?.topic ?? (sessId !== 'sin-sesion' ? `Sesión ${sessId}` : 'Sesiones'),
-            filas: [...filas].sort((x, y) => x.nombre.localeCompare(y.nombre)),
-          }
-        })
+        const sesiones = Object.entries(grupos)
+          .map(([sessId, filas]) => {
+            const sess = sessionById.get(sessId)
+            return {
+              id:     sessId,
+              topic:  sess?.topic ?? (sessId !== 'sin-sesion' ? `Sesión ${sessId}` : 'Sin sesión'),
+              inicio: sess?.startsAt ?? null,
+              filas:  [...filas].sort((x, y) => x.nombre.localeCompare(y.nombre)),
+            }
+          })
+          // En orden de fecha (como se cargan las calificaciones); lo que no tiene sesión, al final
+          .sort((x, y) => (x.inicio ? new Date(x.inicio).getTime() : Infinity) - (y.inicio ? new Date(y.inicio).getTime() : Infinity))
 
-        setDatos({ columnas, sesiones })
+        setDatos({ columnas, sesiones, acumulado })
       } catch (err) {
         if (vivo) setError(err.message || 'No se pudieron cargar los resultados.')
       }
@@ -118,12 +143,50 @@ const ResultadosTaller = ({ taller, onVolver }) => {
       {datos && totalAsistencias > 0 && (
         <>
           <p className="talleres-sub">
-            {datos.sesiones.length} {datos.sesiones.length === 1 ? 'sesión' : 'sesiones'} · {totalAsistencias} asistencias
+            {datos.sesiones.length} {datos.sesiones.length === 1 ? 'sesión' : 'sesiones'} · {totalAsistencias} asistencias · {datos.acumulado.length} {datos.acumulado.length === 1 ? 'participante' : 'participantes'}
           </p>
 
-          {datos.sesiones.map(ses => (
-            <section key={ses.id} className="resultado-sesion">
-              <h2 className="resultado-sesion__titulo">{ses.topic}</h2>
+          {/* ── 1. Calificación acumulada ── */}
+          <section className="resultado-sesion resultado-acumulado" aria-labelledby="res-acumulado">
+            <div className="resultado-sesion__head">
+              <h2 id="res-acumulado" className="resultado-sesion__titulo">Calificación acumulada</h2>
+              <span className="resultado-sesion__meta">Promedio de las sesiones finalizadas, en orden de fecha</span>
+            </div>
+            <div className="resultado-tabla-wrap">
+              <table className="resultado-tabla">
+                <thead>
+                  <tr>
+                    <th scope="col">Participante</th>
+                    {datos.columnas.map(c => <th scope="col" key={c.id}>{c.nombre}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {datos.acumulado.map(j => (
+                    <tr key={j.studentId}>
+                      <th scope="row">
+                        {j.nombre}
+                        {j.fallo && <small className="resultado-obs resultado-obs--error">No se pudo leer su calificación.</small>}
+                      </th>
+                      {datos.columnas.map(c => <td key={c.id}><EscalaChip escala={j.porSkill[c.skillId]} /></td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* ── 2. Detalle por sesión ── */}
+          <h2 className="resultado-seccion">Detalle por sesión</h2>
+          {datos.sesiones.map((ses, idx) => (
+            <section key={ses.id} className="resultado-sesion" aria-labelledby={`res-ses-${ses.id}`}>
+              <div className="resultado-sesion__head">
+                <h3 id={`res-ses-${ses.id}`} className="resultado-sesion__titulo">
+                  <span className="resultado-sesion__n">{idx + 1}</span>{ses.topic}
+                </h3>
+                {ses.inicio && (
+                  <span className="resultado-sesion__meta">{formatFecha(ses.inicio)} · {formatHora(ses.inicio)} · {ses.filas.length} {ses.filas.length === 1 ? 'asistente' : 'asistentes'}</span>
+                )}
+              </div>
               <div className="resultado-tabla-wrap">
                 <table className="resultado-tabla">
                   <thead>
@@ -172,16 +235,7 @@ const ResultadosTaller = ({ taller, onVolver }) => {
                             <small className="resultado-obs resultado-obs--error">No se pudieron leer sus valoraciones.</small>
                           )}
                         </th>
-                        {datos.columnas.map(c => {
-                          const esc = f.porHabilidad[c.id]
-                          return (
-                            <td key={c.id}>
-                              {esc
-                                ? <span className={`val-btn val-btn--sel val-btn--${String(esc.code).toLowerCase()} resultado-escala`} title={esc.name}>{esc.code}</span>
-                                : <span className="resultado-vacio" aria-label="Sin valorar">—</span>}
-                            </td>
-                          )
-                        })}
+                        {datos.columnas.map(c => <td key={c.id}><EscalaChip escala={f.porHabilidad[c.id]} /></td>)}
                       </tr>
                     ))}
                   </tbody>

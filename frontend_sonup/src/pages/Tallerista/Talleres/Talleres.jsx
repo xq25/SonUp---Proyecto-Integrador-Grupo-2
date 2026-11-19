@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getWorkshops, cancelWorkshop, finishWorkshop } from '../../../services/workshops.js'
-import { getWorkshopSessions } from '../../../services/sessions.js'
-import { WORKSHOP_STATUS_LABEL, formatFecha, toBogotaDateInput } from '../../../utils/workshops.js'
+import { getWorkshopSessions, deleteSession } from '../../../services/sessions.js'
+import {
+  WORKSHOP_STATUS_LABEL, SESSION_STATUS_LABEL, formatFecha, formatHora, toBogotaDateInput,
+  sesionEnCurso, siguienteProgramada,
+} from '../../../utils/workshops.js'
 import SesionTaller from './SesionTaller.jsx'
 import ResultadosTaller from './ResultadosTaller.jsx'
 import './Talleres.css'
 
 /**
  * FASES 2 y 3 · SESIONES.
- *   - active   → listar sesiones, iniciar/continuar sesión, finalizar taller cuando todas terminaron
+ *   - active   → listar sesiones, crear una nueva, iniciar/continuar la siguiente, finalizar el taller
  *   - finished → resultados de solo lectura
+ *
+ * Los dos botones de un taller activo son independientes:
+ *   - «Nueva sesión»: formulario en blanco para programar (o dictar ya) una sesión nueva.
+ *   - «Iniciar sesión» / «Continuar sesión en curso»: abre la sesión en curso (paso 2) o la
+ *     siguiente programada (paso 1, con sus datos para revisarlos antes de iniciarla).
  */
-const SESSION_LABEL = { planned: 'Programada', in_progress: 'En curso', finished: 'Finalizada' }
-
 const PESTANAS = [
   { id: 'active',   label: 'En curso'    },
   { id: 'finished', label: 'Finalizados' },
@@ -26,14 +32,17 @@ const Talleres = ({ isAdmin = false }) => {
   const [cargando, setCargando]       = useState(true)
   const [errorCarga, setErrorCarga]   = useState('')
   const [pestana, setPestana]         = useState('active')
-  const [abierto, setAbierto]         = useState(null)   // { taller, sesion?, modo: 'sesion'|'resultados' }
+  const [abierto, setAbierto]         = useState(null)   // { taller, sesion, modo: 'nueva'|'iniciar'|'editar'|'resultados' }
   const [confirmar, setConfirmar]     = useState(null)   // { id, accion: 'cancelar'|'finalizar' }
   const [accionando, setAccionando]   = useState(false)
   const [errorAccion, setErrorAccion] = useState('')
 
-  // Sesiones por taller (cargadas al expandir)
+  // Sesiones por taller
   const [sesionesPorTaller, setSesionesPorTaller] = useState({})   // workshopId → session[]
   const [cargandoSesiones, setCargandoSesiones]   = useState({})   // workshopId → true
+  const [borrarSesion, setBorrarSesion]           = useState(null) // id de la sesión por confirmar
+  const [borrando, setBorrando]                   = useState(false)
+  const [errorSesion, setErrorSesion]             = useState({})   // workshopId → mensaje
   const sesionesIniciadasRef = useRef(new Set())                    // workshopIds ya encolados
 
   const cargar = useCallback(async () => {
@@ -66,8 +75,10 @@ const Talleres = ({ isAdmin = false }) => {
     try {
       const ss = await getWorkshopSessions(workshopId)
       setSesionesPorTaller(prev => ({ ...prev, [key]: ss }))
-    } catch { /* silencioso: no bloqueamos la vista */ }
-    finally { setCargandoSesiones(c => ({ ...c, [key]: false })) }
+      setErrorSesion(e => ({ ...e, [key]: '' }))
+    } catch (err) {
+      setErrorSesion(e => ({ ...e, [key]: err.message || 'No se pudieron cargar las sesiones.' }))
+    } finally { setCargandoSesiones(c => ({ ...c, [key]: false })) }
   }, [])
 
   /* ── Auto-cargar sesiones de talleres activos ── */
@@ -83,28 +94,7 @@ const Talleres = ({ isAdmin = false }) => {
     })
   }, [talleres, cargando, cargarSesiones])
 
-  /* ── Determinar qué sesión abrir ── */
-  const sesionParaAbrir = (ss) => {
-    if (!ss) return null
-    const enCurso = ss.find(s => s.status === 'in_progress')
-    if (enCurso) return enCurso
-    const ahora = new Date()
-    const planificadaHoy = ss.find(s =>
-      s.status === 'planned' && toBogotaDateInput(s.startsAt) <= toBogotaDateInput(ahora),
-    )
-    return planificadaHoy ?? null
-  }
-
-  const labelIniciar = (ss) => {
-    if (!ss) return null
-    if (ss.some(s => s.status === 'in_progress')) return 'Continuar sesión en curso'
-    const ahora = new Date()
-    if (ss.some(s => s.status === 'planned' && toBogotaDateInput(s.startsAt) <= toBogotaDateInput(ahora)))
-      return 'Iniciar sesión'
-    return null
-  }
-
-  /* ── Acciones ── */
+  /* ── Acciones del taller ── */
   const ejecutarAccion = async (t, accion) => {
     setAccionando(true)
     setErrorAccion('')
@@ -126,21 +116,42 @@ const Talleres = ({ isAdmin = false }) => {
     }
   }
 
-  /* ── Después de finalizar una sesión: recargar sesiones y volver a la lista ── */
-  const onSesionFinalizada = async (workshopId) => {
-    setAbierto(null)
-    await cargarSesiones(workshopId)
+  /* ── Eliminar una sesión programada que no se va a dictar ── */
+  const eliminarSesion = async (t, s) => {
+    const key = String(t.id)
+    setBorrando(true)
+    try {
+      await deleteSession(s.id)
+      setBorrarSesion(null)
+      await cargarSesiones(t.id)
+    } catch (err) {
+      setErrorSesion(e => ({ ...e, [key]: err.message }))
+      setBorrarSesion(null)
+    } finally {
+      setBorrando(false)
+    }
   }
 
-  /* ── Detalle de un taller ── */
-  if (abierto?.modo === 'sesion') {
+  /* ── Al salir del detalle de una sesión: volver a la lista con las sesiones al día ── */
+  const cerrarDetalle = (workshopId) => {
+    setAbierto(null)
+    if (workshopId) cargarSesiones(workshopId)
+  }
+
+  /* ── Detalle ── */
+  if (abierto && abierto.modo !== 'resultados') {
+    const ss = sesionesPorTaller[String(abierto.taller.id)] ?? []
+    const enCurso = sesionEnCurso(ss)
     return (
       <SesionTaller
+        // La key fuerza un formulario nuevo cada vez que se abre otra sesión (o una nueva)
+        key={`${abierto.taller.id}-${abierto.modo}-${abierto.sesion?.id ?? 'nueva'}`}
         taller={abierto.taller}
         session={abierto.sesion ?? null}
-        modoEditar={abierto.modoEditar ?? false}
-        onVolver={() => setAbierto(null)}
-        onSesionFinalizada={() => onSesionFinalizada(abierto.taller.id)}
+        modoEditar={abierto.modo === 'editar'}
+        otraEnCurso={enCurso && String(enCurso.id) !== String(abierto.sesion?.id) ? enCurso : null}
+        onVolver={() => cerrarDetalle(abierto.taller.id)}
+        onSesionFinalizada={() => cerrarDetalle(abierto.taller.id)}
       />
     )
   }
@@ -200,9 +211,11 @@ const Talleres = ({ isAdmin = false }) => {
             const key = String(t.id)
             const ss = sesionesPorTaller[key]
             const cargandoSS = Boolean(cargandoSesiones[key])
-            const sesionAccionable = ss ? sesionParaAbrir(ss) : null
-            const labelBtn = labelIniciar(ss)
-            const todasFinalizadas = ss && ss.length > 0 && ss.every(s => s.status === 'finished')
+            const enCurso = ss ? sesionEnCurso(ss) : null
+            const siguiente = ss ? siguienteProgramada(ss) : null
+            const programadas = ss ? ss.filter(s => s.status === 'planned').length : 0
+            const todasFinalizadas = Boolean(ss) && ss.length > 0 && ss.every(s => s.status === 'finished')
+            const errSS = errorSesion[key]
 
             return (
               <li key={key} className="taller-item taller-item--col">
@@ -217,23 +230,31 @@ const Talleres = ({ isAdmin = false }) => {
                   <div className="taller-item__acciones">
                     {t.status === 'active' && (
                       <>
-                        {labelBtn && (
+                        <button type="button" className="btn-volver btn-nueva-sesion"
+                          onClick={() => setAbierto({ taller: t, sesion: null, modo: 'nueva' })}>
+                          + Nueva sesión
+                        </button>
+                        {enCurso ? (
                           <button type="button" className="btn-publicar btn-publicar--sm"
-                            onClick={() => setAbierto({ taller: t, sesion: sesionAccionable, modo: 'sesion' })}>
-                            {labelBtn}
+                            onClick={() => setAbierto({ taller: t, sesion: enCurso, modo: 'iniciar' })}>
+                            Continuar sesión en curso
+                          </button>
+                        ) : (
+                          <button type="button" className="btn-publicar btn-publicar--sm"
+                            disabled={!siguiente}
+                            title={siguiente
+                              ? `Siguiente: «${siguiente.topic}» · ${formatFecha(siguiente.startsAt)} ${formatHora(siguiente.startsAt)}`
+                              : 'No hay sesiones programadas: crea una con «Nueva sesión»'}
+                            onClick={() => setAbierto({ taller: t, sesion: siguiente, modo: 'iniciar' })}>
+                            Iniciar sesión
                           </button>
                         )}
-                        <button type="button" className="btn-volver"
-                          onClick={() => setAbierto({ taller: t, sesion: null, modo: 'sesion' })}>
-                          Nueva sesión
-                        </button>
                         <button type="button" className="btn-volver"
                           onClick={() => { setConfirmar({ id: key, accion: 'cancelar' }); setErrorAccion('') }}>
                           Cancelar taller
                         </button>
                         {todasFinalizadas && (
-                          <button type="button" className="btn-publicar btn-publicar--sm"
-                            style={{ background: 'var(--color-accent)' }}
+                          <button type="button" className="btn-publicar btn-publicar--sm taller-btn-finalizar"
                             onClick={() => { setConfirmar({ id: key, accion: 'finalizar' }); setErrorAccion('') }}>
                             Finalizar taller
                           </button>
@@ -252,28 +273,67 @@ const Talleres = ({ isAdmin = false }) => {
                 {/* Lista de sesiones */}
                 {t.status === 'active' && ss && ss.length > 0 && (
                   <ul className="taller-sesiones" role="list" aria-label="Sesiones del taller">
-                    {ss.map(s => (
-                      <li key={String(s.id)} className="taller-sesion-row">
-                        <span className={`taller-sesion-badge taller-sesion-badge--${s.status}`}>
-                          {SESSION_LABEL[s.status] ?? s.status}
-                        </span>
-                        <span className="taller-sesion-tema">{s.topic}</span>
-                        <span className="taller-sesion-horario">
-                          {toBogotaDateInput(s.startsAt)} · {new Date(s.startsAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' })}
-                        </span>
-                        {s.status !== 'finished' && (
-                          <button type="button" className="btn-volver taller-sesion-editar"
-                            onClick={() => setAbierto({ taller: t, sesion: s, modo: 'sesion', modoEditar: true })}>
-                            Editar
-                          </button>
-                        )}
-                      </li>
-                    ))}
+                    {ss.map(s => {
+                      const sid = String(s.id)
+                      const esSiguiente = !enCurso && siguiente && String(siguiente.id) === sid
+                      return (
+                        <li key={sid} className={`taller-sesion-row${esSiguiente ? ' taller-sesion-row--siguiente' : ''}`}>
+                          <span className={`taller-sesion-badge taller-sesion-badge--${s.status}`}>
+                            {SESSION_STATUS_LABEL[s.status] ?? s.status}
+                          </span>
+                          <span className="taller-sesion-tema">
+                            {s.topic}
+                            {esSiguiente && <small className="taller-sesion-siguiente">Siguiente</small>}
+                          </span>
+                          <span className="taller-sesion-horario">
+                            {toBogotaDateInput(s.startsAt)} · {formatHora(s.startsAt)}
+                          </span>
+                          {s.status !== 'finished' && (
+                            <span className="taller-sesion-acciones">
+                              <button type="button" className="btn-volver taller-sesion-editar"
+                                onClick={() => setAbierto({ taller: t, sesion: s, modo: 'editar' })}>
+                                Editar
+                              </button>
+                              {s.status === 'planned' && (
+                                <button type="button" className="btn-volver taller-sesion-eliminar"
+                                  onClick={() => { setBorrarSesion(sid); setErrorSesion(e => ({ ...e, [key]: '' })) }}>
+                                  Eliminar
+                                </button>
+                              )}
+                            </span>
+                          )}
+                          {borrarSesion === sid && (
+                            <div className="taller-sesion-confirmar" role="alertdialog" aria-label="Confirmar eliminación">
+                              <p>¿Eliminar la sesión «{s.topic}»? Úsalo para las sesiones que no se van a dictar.</p>
+                              <span className="taller-sesion-acciones">
+                                <button type="button" className="btn-publicar btn-publicar--sm taller-btn-peligro"
+                                  disabled={borrando} onClick={() => eliminarSesion(t, s)}>
+                                  {borrando ? 'Eliminando…' : 'Sí, eliminar'}
+                                </button>
+                                <button type="button" className="btn-volver" disabled={borrando}
+                                  onClick={() => setBorrarSesion(null)}>
+                                  Volver
+                                </button>
+                              </span>
+                            </div>
+                          )}
+                        </li>
+                      )
+                    })}
                   </ul>
                 )}
-                {t.status === 'active' && cargandoSS && (
-                  <p className="talleres-estado" style={{ padding: '0.4rem 0', textAlign: 'left' }}>Cargando sesiones…</p>
+                {t.status === 'active' && ss && ss.length === 0 && (
+                  <p className="talleres-estado talleres-estado--izq">Este taller aún no tiene sesiones. Crea una con «Nueva sesión».</p>
                 )}
+                {t.status === 'active' && !todasFinalizadas && programadas > 0 && !enCurso && ss?.some(s => s.status === 'finished') && (
+                  <p className="talleres-estado talleres-estado--izq talleres-estado--nota">
+                    Para finalizar el taller, todas sus sesiones deben estar finalizadas: elimina las programadas que no se van a dictar.
+                  </p>
+                )}
+                {t.status === 'active' && cargandoSS && !ss && (
+                  <p className="talleres-estado talleres-estado--izq">Cargando sesiones…</p>
+                )}
+                {errSS && <p className="talleres-estado talleres-estado--error" role="alert">{errSS}</p>}
 
                 {confirmar?.id === key && (
                   <div className="taller-confirmar" role="alertdialog" aria-label="Confirmar acción">
