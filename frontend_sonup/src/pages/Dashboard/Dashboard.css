@@ -311,3 +311,7 @@
     min-height: 110px;
   }
 }
+
+/* Próximas sesiones del joven */
+.joven-proximas { width: 100%; }
+.joven-musica-card__sub::first-letter { text-transform: uppercase; }

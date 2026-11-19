@@ -5,6 +5,9 @@ import { getChild } from '../../services/children.js'
 import { getStudentAttendances } from '../../services/attendances.js'
 import { getWorkshops, completeWorkshopsFromAttendances } from '../../services/workshops.js'
 import { getStudentCredentials } from '../../services/credentials.js'
+import { getSesionesDelJoven } from '../../services/studentSessions.js'
+import ProximasSesiones from '../../components/ProximasSesiones/ProximasSesiones.jsx'
+import { toBogotaDateInput, formatHora, textToMaterials } from '../../utils/workshops.js'
 import './AcudienteHome.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -29,6 +32,11 @@ const ChevronLeftIcon = () => (
     <polyline points="15 18 9 12 15 6"/>
   </svg>
 )
+const ChevronRightIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="9 18 15 12 9 6"/>
+  </svg>
+)
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
@@ -38,6 +46,23 @@ const MESES_ABR  = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT',
 
 const formatFechaLarga = (d) =>
   new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d)
+
+/** Tipos de actividad que se muestran al pasar el cursor por un día del calendario. */
+const TIPO_ACTIVIDAD = {
+  asistio:    'Asistió',
+  en_curso:   'En curso',
+  programada: 'Programada',
+}
+
+/** «2026-11-18» → { year, month } (month de 1 a 12) */
+const mesDe = (yyyyMmDd) => ({ year: Number(yyyyMmDd.slice(0, 4)), month: Number(yyyyMmDd.slice(5, 7)) })
+
+const claveDia = (year, month, dia) =>
+  `${year}-${String(month).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
+
+/** Fecha larga de un día del calendario (se arma a mediodía para no cambiar de día por zona horaria). */
+const fechaDeClave = (clave) =>
+  new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${clave}T12:00:00`))
 
 const getColombiaCurrentTime = () =>
   new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date())
@@ -54,6 +79,11 @@ const AcudienteHome = () => {
   const [asistencias,  setAsistencias]  = useState([])
   const [talleresMapa, setTalleresMapa] = useState({})
   const [credencial,   setCredencial]   = useState(null)
+  const [sesiones,     setSesiones]     = useState([])     // sesiones de los talleres del joven
+  const [mesVista,     setMesVista]     = useState(null)   // { year, month } elegido con las flechas
+  const [diaActivo,    setDiaActivo]    = useState(null)   // 'yyyy-mm-dd' con la ventanita abierta
+  const calGridRef = useRef(null)
+  const punteroRef = useRef('mouse')   // con mouse se abre al pasar el cursor; al tocar, con el toque
   const [cargando,     setCargando]     = useState(true)
   const loadedRef = useRef(new Set())
 
@@ -96,6 +126,10 @@ const AcudienteHome = () => {
         const sorted = [...asist].sort((a, b) => new Date(b.attendedAt) - new Date(a.attendedAt))
         setAsistencias(sorted)
 
+        // Sesiones de los talleres disponibles y de aquellos a los que asistió: tema y hora de cada
+        // clase en el calendario, y las próximas con sus materiales
+        setSesiones(await getSesionesDelJoven(wsRes.status === 'fulfilled' ? wsRes.value : [], asist))
+
         const allWs = await completeWorkshopsFromAttendances(wsRes.status === 'fulfilled' ? wsRes.value : [], asist)
         const mapa = {}
         allWs.forEach(w => { mapa[String(w.id)] = w })
@@ -132,29 +166,70 @@ const AcudienteHome = () => {
   /* Clase seleccionada en la preview */
   const claseActual = clasesRecientes[claseIndex] ?? null
 
-  /* Mes del calendario: mes de la asistencia más reciente */
-  const { calYear, calMonth } = useMemo(() => {
-    if (asistencias.length === 0) {
-      const now = new Date()
-      return { calYear: now.getFullYear(), calMonth: now.getMonth() + 1 }
-    }
-    const d = new Date(asistencias[0].attendedAt)
-    return { calYear: d.getFullYear(), calMonth: d.getMonth() + 1 }
-  }, [asistencias])
+  /* Actividades por día (hora de Bogotá): clases a las que asistió y sesiones programadas o en curso */
+  const actividadesPorDia = useMemo(() => {
+    const sesionPorId = new Map(sesiones.map(s => [String(s.id), s]))
+    const nombreTaller = (id) => talleresMapa[String(id)]?.name ?? `Taller ${id}`
+    const mapa = {}
+    const agregar = (clave, item) => { (mapa[clave] ??= []).push(item) }
+    const sesionesConAsistencia = new Set()
 
-  const { calOffset, daysInMonth, attendedDays, totalAsistencias } = useMemo(() => {
-    const firstDay = new Date(calYear, calMonth - 1, 1)
-    const offset   = (firstDay.getDay() + 6) % 7   // Lu=0 … Do=6
-    const total    = new Date(calYear, calMonth, 0).getDate()
-    const attended = new Set()
     asistencias.forEach(a => {
-      const d = new Date(a.attendedAt)
-      if (d.getFullYear() === calYear && d.getMonth() + 1 === calMonth) {
-        attended.add(d.getDate())
-      }
+      const s = sesionPorId.get(String(a.sessionId))
+      if (a.sessionId) sesionesConAsistencia.add(String(a.sessionId))
+      const inicio = s?.startsAt ?? a.attendedAt
+      agregar(toBogotaDateInput(inicio), {
+        id: `a-${a.id}`, tipo: 'asistio', taller: nombreTaller(a.workshopId),
+        tema: s?.topic ?? '', hora: formatHora(inicio), inicio, materiales: [],
+      })
     })
-    return { calOffset: offset, daysInMonth: total, attendedDays: attended, totalAsistencias: attended.size }
-  }, [asistencias, calYear, calMonth])
+    sesiones.forEach(s => {
+      if (s.status === 'finished' || sesionesConAsistencia.has(String(s.id))) return
+      agregar(toBogotaDateInput(s.startsAt), {
+        id: `s-${s.id}`, tipo: s.status === 'in_progress' ? 'en_curso' : 'programada',
+        taller: nombreTaller(s.workshopId), tema: s.topic, hora: formatHora(s.startsAt),
+        inicio: s.startsAt, materiales: textToMaterials(s.materials),
+      })
+    })
+    Object.values(mapa).forEach(lista => lista.sort((x, y) => new Date(x.inicio) - new Date(y.inicio)))
+    return mapa
+  }, [asistencias, sesiones, talleresMapa])
+
+  /* Mes del calendario: el elegido con las flechas o, por defecto, el de la asistencia más reciente */
+  const mesPorDefecto = useMemo(
+    () => mesDe(toBogotaDateInput(asistencias[0]?.attendedAt ?? new Date())),
+    [asistencias],
+  )
+  const { year: calYear, month: calMonth } = mesVista ?? mesPorDefecto
+
+  const moverMes = (delta) => {
+    const base = new Date(calYear, calMonth - 1 + delta, 1)
+    setMesVista({ year: base.getFullYear(), month: base.getMonth() + 1 })
+    setDiaActivo(null)
+  }
+
+  const { calOffset, daysInMonth, totalAsistencias } = useMemo(() => {
+    const offset = (new Date(calYear, calMonth - 1, 1).getDay() + 6) % 7   // Lu=0 … Do=6
+    const total  = new Date(calYear, calMonth, 0).getDate()
+    let asistidos = 0
+    for (let dia = 1; dia <= total; dia += 1) {
+      if (actividadesPorDia[claveDia(calYear, calMonth, dia)]?.some(it => it.tipo === 'asistio')) asistidos += 1
+    }
+    return { calOffset: offset, daysInMonth: total, totalAsistencias: asistidos }
+  }, [actividadesPorDia, calYear, calMonth])
+
+  /* Un toque fuera del calendario (o Escape) cierra la ventanita del día */
+  useEffect(() => {
+    if (!diaActivo) return
+    const fuera = (e) => { if (!calGridRef.current?.contains(e.target)) setDiaActivo(null) }
+    const tecla = (e) => { if (e.key === 'Escape') setDiaActivo(null) }
+    document.addEventListener('pointerdown', fuera)
+    document.addEventListener('keydown', tecla)
+    return () => {
+      document.removeEventListener('pointerdown', fuera)
+      document.removeEventListener('keydown', tecla)
+    }
+  }, [diaActivo])
 
   /* Seguimiento: últimas 2 asistencias con observación */
   const seguimiento = useMemo(() =>
@@ -239,6 +314,9 @@ const AcudienteHome = () => {
                   if (!activo) {
                     selectChild(id)
                     setClaseIndex(0)
+                    setSesiones([])
+                    setMesVista(null)
+                    setDiaActivo(null)
                     setConfirmado(false)
                     setCargando(true)
                   }
@@ -340,17 +418,25 @@ const AcudienteHome = () => {
       {/* ── Fila inferior ── */}
       <div className="acu-bottom-grid">
 
-        {/* Calendario de asistencia */}
-        <section className="acu-asistencia-card" aria-label="Asistencia">
+        {/* Calendario de asistencia y actividades */}
+        <section className="acu-asistencia-card" aria-label="Asistencia y actividades">
           <div className="acu-asistencia-head">
-            <h3 className="acu-card-titulo">
-              Asistencia de {MESES_ES[calMonth - 1]}
-            </h3>
+            <div className="acu-cal-nav">
+              <button type="button" className="acu-cal-nav__btn" onClick={() => moverMes(-1)} aria-label="Mes anterior">
+                <ChevronLeftIcon />
+              </button>
+              <h3 className="acu-card-titulo">
+                {MESES_ES[calMonth - 1]} {calYear}
+              </h3>
+              <button type="button" className="acu-cal-nav__btn" onClick={() => moverMes(1)} aria-label="Mes siguiente">
+                <ChevronRightIcon />
+              </button>
+            </div>
             <span className="acu-asistencia-resumen">
               {totalAsistencias} {totalAsistencias === 1 ? 'clase' : 'clases'}
             </span>
           </div>
-          <div className="acu-cal-grid" role="grid" aria-label={`Calendario de ${MESES_ES[calMonth - 1]}`}>
+          <div className="acu-cal-grid" role="grid" aria-label={`Calendario de ${MESES_ES[calMonth - 1]} ${calYear}`} ref={calGridRef}>
             {CAL_SEMANA.map(d => (
               <span key={d} className="acu-cal-head" role="columnheader">{d}</span>
             ))}
@@ -358,24 +444,82 @@ const AcudienteHome = () => {
               <span key={`e${i}`} aria-hidden="true" />
             ))}
             {Array.from({ length: daysInMonth }, (_, i) => {
-              const dia    = i + 1
-              const asistio = attendedDays.has(dia)
+              const dia     = i + 1
+              const clave   = claveDia(calYear, calMonth, dia)
+              const items   = actividadesPorDia[clave] ?? []
+              const asistio = items.some(it => it.tipo === 'asistio')
+              const proxima = items.some(it => it.tipo !== 'asistio')
+              const abierto = diaActivo === clave && items.length > 0
+              // Posición de la ventanita según la celda, para que no se salga de la tarjeta
+              const celda   = calOffset + i
+              const columna = celda % 7
+              const fila    = Math.floor(celda / 7)
+              const lado    = columna <= 1 ? 'izq' : columna >= 5 ? 'der' : 'centro'
+              const vertical = fila <= 1 ? 'abajo' : 'arriba'
+              const tipId   = `acu-dia-${clave}`
+              const clases  = [
+                'acu-cal-dia',
+                asistio ? 'acu-cal-dia--vino' : '',
+                proxima ? 'acu-cal-dia--prog' : '',
+                items.length > 0 ? 'acu-cal-dia--con' : '',
+                abierto ? 'acu-cal-dia--abierto' : '',
+              ].filter(Boolean).join(' ')
+
+              if (items.length === 0) {
+                return <span key={dia} className={clases} role="gridcell" aria-label={String(dia)}>{dia}</span>
+              }
               return (
                 <span
                   key={dia}
-                  className={`acu-cal-dia${asistio ? ' acu-cal-dia--vino' : ''}`}
+                  className={clases}
                   role="gridcell"
-                  aria-label={asistio ? `${dia}: asistió` : String(dia)}
+                  tabIndex={0}
+                  aria-label={`${dia}: ${items.length} ${items.length === 1 ? 'actividad' : 'actividades'}`}
+                  aria-describedby={abierto ? tipId : undefined}
+                  aria-expanded={abierto}
+                  onPointerEnter={e => { if (e.pointerType === 'mouse') setDiaActivo(clave) }}
+                  onPointerLeave={e => { if (e.pointerType === 'mouse') setDiaActivo(a => (a === clave ? null : a)) }}
+                  onFocus={e => { if (e.currentTarget.matches(':focus-visible')) setDiaActivo(clave) }}
+                  onBlur={() => setDiaActivo(a => (a === clave ? null : a))}
+                  onPointerDown={e => { punteroRef.current = e.pointerType }}
+                  onClick={() => setDiaActivo(a => (punteroRef.current !== 'mouse' && a === clave ? null : clave))}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDiaActivo(a => (a === clave ? null : clave)) } }}
                 >
                   {dia}
+                  {abierto && (
+                    <span id={tipId} role="tooltip" className={`acu-cal-tip acu-cal-tip--${lado} acu-cal-tip--${vertical}`}>
+                      <span className="acu-cal-tip__fecha">{fechaDeClave(clave)}</span>
+                      {items.map(it => (
+                        <span key={it.id} className={`acu-cal-tip__item acu-cal-tip__item--${it.tipo}`}>
+                          <span className="acu-cal-tip__fila">
+                            <span className="acu-cal-tip__tipo">{TIPO_ACTIVIDAD[it.tipo]}</span>
+                            {it.hora && <span className="acu-cal-tip__hora">{it.hora}</span>}
+                          </span>
+                          <span className="acu-cal-tip__taller">{it.taller}</span>
+                          {it.tema && <span className="acu-cal-tip__tema">{it.tema}</span>}
+                          {it.materiales.length > 0 && (
+                            <span className="acu-cal-tip__mat">Llevar: {it.materiales.join(', ')}</span>
+                          )}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </span>
               )
             })}
+          </div>
+          <div className="acu-cal-leyenda" aria-hidden="true">
+            <span className="acu-cal-leyenda__item"><span className="acu-cal-leyenda__punto acu-cal-leyenda__punto--vino" />Asistió</span>
+            <span className="acu-cal-leyenda__item"><span className="acu-cal-leyenda__punto acu-cal-leyenda__punto--prog" />Programada</span>
+            <span className="acu-cal-leyenda__ayuda">Pasa el cursor o toca un día para ver sus actividades</span>
           </div>
         </section>
 
         {/* Columna derecha */}
         <div className="acu-right-col">
+
+          {/* Próximas sesiones con los materiales que debe llevar */}
+          <ProximasSesiones sesiones={sesiones} talleres={talleresMapa} cargando={cargando} />
 
           {/* Informe — solo si hay credencial válida */}
           {credencial && (
