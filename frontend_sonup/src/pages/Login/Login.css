@@ -287,4 +287,8 @@
     align-items: flex-start;
     padding-top: 3rem;
   }
+
+  .role-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
