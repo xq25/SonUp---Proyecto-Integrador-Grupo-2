@@ -469,6 +469,24 @@
   .barras-leyenda {
     gap: 0.6rem;
   }
+
+  .inf-header {
+    flex-direction: column;
+  }
+
+  .inf-header__acciones {
+    width: 100%;
+  }
+
+  .inf-selector {
+    width: 100%;
+  }
+
+  .btn-descargar,
+  .btn-enviar {
+    flex: 1;
+    justify-content: center;
+  }
 }
 
 /* ── Modal enviar ─────────────────────────────────────────────────────────── */
