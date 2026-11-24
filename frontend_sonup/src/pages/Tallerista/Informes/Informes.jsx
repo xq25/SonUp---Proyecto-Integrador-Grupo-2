@@ -103,6 +103,7 @@ const Informes = () => {
   const { pathname } = useLocation()
   const base = pathname.startsWith('/administrador') ? '/administrador' : '/tallerista'
   const [mostrarEnviar, setMostrarEnviar] = useState(false)
+  const [recomendaciones, setRecomendaciones] = useState('')
 
   /* Selector */
   const [niños, setNiños] = useState([])
@@ -181,7 +182,7 @@ const Informes = () => {
   const titulo = `Informe del ${semestre()} semestre ${año}`
   const tagDoc = `INFORME DEL ${semestre().toUpperCase()} SEMESTRE ${año}`
 
-  const defaultMensaje = `Estimada familia,\n\nCompartimos el informe del ${semestre()} semestre ${año} de ${nombre}.\n${workshopsAsistidos.length > 0 ? `Talleres participados: ${talleresStr}\n` : ''}${catAverages.length > 0 ? `Progreso en habilidades: ${catAverages.map(c => `${c.categoryName}: ${c.average.toFixed(1)}/5`).join(', ')}\n` : ''}\nEn él encontrarán un resumen de logros, avances y recomendaciones para el hogar.\n\nEquipo Son Up · Fundación Asisco`
+  const defaultMensaje = `Estimada familia,\n\nCompartimos el informe del ${semestre()} semestre ${año} de ${nombre}.\n${workshopsAsistidos.length > 0 ? `Talleres participados: ${talleresStr}\n` : ''}${catAverages.length > 0 ? `Progreso en habilidades: ${catAverages.map(c => `${c.categoryName}: ${c.average.toFixed(1)}/5`).join(', ')}\n` : ''}${recomendaciones.trim() ? `\nRecomendaciones para la casa:\n${recomendaciones.trim()}\n` : ''}\nEn él encontrarán un resumen de logros, avances y recomendaciones para el hogar.\n\nEquipo Son Up · Fundación Asisco`
 
   const reportFile = useMemo(() => {
     if (!niño) return null
@@ -214,9 +215,13 @@ const Informes = () => {
               )
           ),
         },
+        ...(recomendaciones.trim() ? [{
+          title: 'Recomendaciones para la casa',
+          paragraphs: [recomendaciones.trim()],
+        }] : []),
       ],
     })
-  }, [niño, titulo, nombre, talleresStr, catAverages, workshopsAsistidos, asistenciasPorTaller])
+  }, [niño, titulo, nombre, talleresStr, catAverages, workshopsAsistidos, asistenciasPorTaller, recomendaciones])
 
   return (
     <div className="inf-page">
@@ -368,9 +373,13 @@ const Informes = () => {
             {/* Recomendaciones */}
             <section className="doc-seccion">
               <h2 className="doc-seccion__titulo">Recomendaciones para la casa</h2>
-              <p className="doc-texto doc-texto--muted">
-                Pendiente de redacción por parte del tallerista.
-              </p>
+              {recomendaciones.trim() ? (
+                <p className="doc-texto">{recomendaciones.trim()}</p>
+              ) : (
+                <p className="doc-texto doc-texto--muted">
+                  Pendiente de redacción por parte del tallerista.
+                </p>
+              )}
             </section>
 
             {/* Firmas */}
@@ -414,6 +423,21 @@ const Informes = () => {
                   </li>
                 ))}
               </ul>
+            </div>
+
+            <div className="card">
+              <h3 className="card-titulo-sm">Recomendaciones para la casa</h3>
+              <p className="quien-texto" style={{ marginBottom: '0.75rem' }}>
+                Se incluirán en el informe y en el mensaje de envío a la familia.
+              </p>
+              <textarea
+                className="inf-recomendaciones"
+                rows={5}
+                maxLength={1000}
+                placeholder="Escribe aquí las recomendaciones para el hogar…"
+                value={recomendaciones}
+                onChange={e => setRecomendaciones(e.target.value)}
+              />
             </div>
 
             <div className="card">

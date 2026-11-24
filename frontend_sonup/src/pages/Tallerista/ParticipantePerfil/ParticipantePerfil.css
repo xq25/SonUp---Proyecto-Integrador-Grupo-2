@@ -338,6 +338,16 @@
   margin-top: 0.25rem;
 }
 
+.grafica__barra--parcial {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--color-primary) 0px,
+    var(--color-primary) 4px,
+    rgba(23, 109, 101, 0.2) 4px,
+    rgba(23, 109, 101, 0.2) 8px
+  );
+}
+
 /* Información prioritaria */
 .card--prioritaria {
   border-top: 3px solid var(--color-accent);

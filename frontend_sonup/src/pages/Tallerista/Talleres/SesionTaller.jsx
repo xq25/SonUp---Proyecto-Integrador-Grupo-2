@@ -883,6 +883,11 @@ const SesionTaller = ({ taller, session = null, modoEditar = false, otraEnCurso 
                         <small className="evi-youtube__nota">Se guardará como {toYoutubeEmbed(evi.url)}</small>
                       </>
                     )}
+                    {!isYoutubeUrl(evi.url) && (sugerido === 'IMAGE' || evi.type === 'IMAGE') && evi.url.trim().startsWith('https://') && (
+                      <img src={evi.url.trim()} alt="Vista previa" className="evi-img-prev"
+                        referrerPolicy="no-referrer"
+                        onError={e => { e.target.style.display = 'none' }} />
+                    )}
                   </div>
                   <div className="form-campo">
                     <label className="form-label" htmlFor="evi-titulo">Título</label>

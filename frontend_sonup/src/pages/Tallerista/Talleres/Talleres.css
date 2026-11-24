@@ -1455,6 +1455,16 @@
   overflow-wrap: anywhere;
 }
 
+.evi-img-prev {
+  display: block;
+  max-width: 100%;
+  max-height: 260px;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  object-fit: contain;
+  border: 1px solid #DFE5E2;
+}
+
 /* ── Finalizar sesión: hora real de fin ──────────────────────────────────── */
 .fin-aviso {
   font-size: var(--fs-xs);
