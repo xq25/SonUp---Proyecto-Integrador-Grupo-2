@@ -1,7 +1,7 @@
 .certp { display: flex; flex-direction: column; gap: 0.6rem; font-family: 'Nunito', sans-serif; }
 .certp-media { width: 100%; border: 1px solid var(--color-border, #DFE5E2); border-radius: 12px; background: #fff; display: block; }
-img.certp-media { max-height: 420px; object-fit: contain; }
-.certp-media--doc { height: 420px; }
+img.certp-media { max-height: clamp(220px, 55vw, 420px); object-fit: contain; }
+.certp-media--doc { height: clamp(220px, 55vw, 420px); }
 .certp-vacio { font-size: var(--fs-sm, 0.9rem); color: var(--color-text-muted, #687974); background: var(--color-teal-light, #E2F2EF); border-radius: 12px; padding: 1rem; text-align: center; margin: 0; }
 .certp-link { align-self: flex-start; font-weight: 800; font-size: var(--fs-sm, 0.9rem); color: var(--color-primary, #176D65); text-decoration: none; }
 .certp-link:hover { text-decoration: underline; }
