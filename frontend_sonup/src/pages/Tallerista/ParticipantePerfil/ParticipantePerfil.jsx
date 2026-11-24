@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { getChildren, getChild, getChildGuardians } from '../../../services/children.js'
-import { getStudentCategoryAverages }            from '../../../services/skills.js'
+import { getStudentCategoryAverages, getStudentProgress } from '../../../services/skills.js'
 import { getStudentCredentials }                 from '../../../services/credentials.js'
 import { getStudentEvidences }                   from '../../../services/evidences.js'
 import { getStudentAttendances }                 from '../../../services/attendances.js'
@@ -82,6 +82,13 @@ const initiales = (first, last) =>
 const formatFechaCorta = (iso) =>
   new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'short' })
 
+const formatMes = (yyyyMm) => {
+  const [y, m] = yyyyMm.split('-')
+  return new Date(Number(y), Number(m) - 1, 1)
+    .toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })
+}
+
+
 const formatFechaLarga = (iso) =>
   new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -106,6 +113,7 @@ const ParticipantePerfil = () => {
   const [evidencias,      setEvidencias]      = useState([])
   const [asistencias,     setAsistencias]     = useState([])
   const [talleresMapa,    setTalleresMapa]    = useState({})
+  const [progreso,        setProgreso]        = useState(null)
   const [cargando,        setCargando]        = useState(true)
 
   /* Estado del modal compartir */
@@ -142,8 +150,9 @@ const ParticipantePerfil = () => {
         getStudentAttendances(childId),
         getWorkshops({}),
         getChildren(),
+        getStudentProgress(childId),
       ])
-      const [child, guardians, catAvg, creds, evids, asist, ws, allChildren] = results
+      const [child, guardians, catAvg, creds, evids, asist, ws, allChildren, prog] = results
 
       if (child.status    === 'fulfilled') setNiño(child.value)
       if (guardians.status === 'fulfilled') setAcudientes(guardians.value)
@@ -160,6 +169,7 @@ const ParticipantePerfil = () => {
         setTalleresMapa(mapa)
       }
       if (allChildren.status === 'fulfilled') setNiños(allChildren.value)
+      if (prog.status       === 'fulfilled') setProgreso(prog.value)
       setCargando(false)
     }
     load()
@@ -178,6 +188,17 @@ const ParticipantePerfil = () => {
   }, [catAverages])
 
   const catActiva = catAverages.find(c => c.categoryName === tabActivo) ?? null
+
+  const barrasProgreso = useMemo(() => {
+    if (!progreso?.months?.length) return []
+    return progreso.months.map(m => ({
+      mes:        m.month,
+      label:      formatMes(m.month),
+      partial:    m.partial ?? false,
+      avg:        m.categories.find(c => c.categoryName === tabActivo)?.average ?? null,
+      skillCount: m.categories.find(c => c.categoryName === tabActivo)?.skillCount ?? null,
+    }))
+  }, [progreso, tabActivo])
 
   const seguimiento = useMemo(() =>
     [...asistencias]
@@ -357,28 +378,49 @@ const ParticipantePerfil = () => {
               </div>
 
               {catActiva ? (
-                <div className="grafica">
-                  <div className="grafica__col" style={{ flex: 'none', width: '80px' }}>
-                    <span className="grafica__valor">{catActiva.skillCount} hab.</span>
-                    <div className="grafica__pista">
-                      <div
-                        className="grafica__barra grafica__barra--actual"
-                        style={{ height: `${(catActiva.average / 5) * 100}%` }}
-                      />
-                    </div>
-                    <span className="grafica__periodo">Actual</span>
+                <>
+                  {/* Barras: una por mes (o la barra "Actual" si aún no hay historial) */}
+                  <div className="grafica">
+                    {barrasProgreso.length > 0 ? barrasProgreso.map((b, i) => (
+                      <div key={i} className="grafica__col">
+                        {b.avg !== null && (
+                          <span className="grafica__valor">{b.avg.toFixed(1)}</span>
+                        )}
+                        <div className="grafica__pista">
+                          {b.avg !== null && (
+                            <div
+                              className={`grafica__barra${b.partial ? ' grafica__barra--parcial' : ' grafica__barra--actual'}`}
+                              style={{ height: `${(b.avg / 5) * 100}%` }}
+                            />
+                          )}
+                        </div>
+                        <span className="grafica__periodo">
+                          {b.label}{b.partial ? '*' : ''}
+                        </span>
+                      </div>
+                    )) : (
+                      <div className="grafica__col" style={{ flex: 'none', width: '80px' }}>
+                        <span className="grafica__valor">{catActiva.skillCount} hab.</span>
+                        <div className="grafica__pista">
+                          <div
+                            className="grafica__barra grafica__barra--actual"
+                            style={{ height: `${(catActiva.average / 5) * 100}%` }}
+                          />
+                        </div>
+                        <span className="grafica__periodo">Actual</span>
+                      </div>
+                    )}
                   </div>
-                </div>
+
+                  <p className="grafica__nota">
+                    Promedio: <strong>{catActiva.average.toFixed(2)} / 5</strong>
+                    &nbsp;· {catActiva.skillCount} habilidad{catActiva.skillCount !== 1 ? 'es' : ''} valorada{catActiva.skillCount !== 1 ? 's' : ''}.
+                    {barrasProgreso.some(b => b.partial) && <> · <em>* mes en curso</em></>}
+                  </p>
+                </>
               ) : (
                 <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
                   Sin valoraciones en esta categoría.
-                </p>
-              )}
-
-              {catActiva && (
-                <p className="grafica__nota">
-                  Promedio: <strong>{catActiva.average.toFixed(2)} / 5</strong>
-                  &nbsp;· {catActiva.skillCount} habilidad{catActiva.skillCount !== 1 ? 'es' : ''} valorada{catActiva.skillCount !== 1 ? 's' : ''}.
                 </p>
               )}
             </div>

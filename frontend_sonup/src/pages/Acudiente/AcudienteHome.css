@@ -712,3 +712,161 @@
     gap: 0.25rem;
   }
 }
+/* ── Calendario: navegación de meses ─────────────────────────────────────── */
+.acu-cal-nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.25rem, 0.8vw, 0.5rem);
+}
+.acu-cal-nav__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(26px, 3.2vw, 30px);
+  height: clamp(26px, 3.2vw, 30px);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  color: var(--color-text-dark);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.acu-cal-nav__btn:hover,
+.acu-cal-nav__btn:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ── Calendario: días con actividades ────────────────────────────────────── */
+.acu-cal-dia { position: relative; }
+
+.acu-cal-dia--prog {
+  box-shadow: inset 0 0 0 1.5px var(--color-accent);
+  color: var(--color-text-dark);
+  font-weight: 700;
+}
+.acu-cal-dia--vino.acu-cal-dia--prog {
+  box-shadow: inset 0 0 0 1.5px var(--color-accent);
+  color: var(--color-primary);
+}
+.acu-cal-dia--con {
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.acu-cal-dia--con:hover,
+.acu-cal-dia--abierto {
+  transform: translateY(-1px);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+.acu-cal-dia--con:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ── Ventanita flotante con las actividades del día ──────────────────────── */
+.acu-cal-tip {
+  position: absolute;
+  z-index: 20;
+  width: clamp(11.5rem, 62vw, 16rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.35rem, 0.9vw, 0.5rem);
+  padding: clamp(0.55rem, 1.4vw, 0.75rem);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(23, 54, 50, 0.16);
+  text-align: left;
+  font-weight: 400;
+  cursor: default;
+  pointer-events: none;            /* no roba el hover de las celdas vecinas */
+  animation: acu-tip-in 0.12s ease-out;
+}
+.acu-cal-tip--abajo  { top: calc(100% + clamp(0.3rem, 0.8vw, 0.45rem)); }
+.acu-cal-tip--arriba { bottom: calc(100% + clamp(0.3rem, 0.8vw, 0.45rem)); }
+.acu-cal-tip--izq    { left: 0; }
+.acu-cal-tip--der    { right: 0; }
+.acu-cal-tip--centro { left: 50%; translate: -50% 0; }
+
+@keyframes acu-tip-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.acu-cal-tip__fecha {
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--color-text-dark);
+}
+.acu-cal-tip__fecha::first-letter { text-transform: uppercase; }
+.acu-cal-tip__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding-left: clamp(0.45rem, 1vw, 0.6rem);
+  border-left: 3px solid var(--color-primary);
+}
+.acu-cal-tip__item--programada { border-left-color: var(--color-accent); }
+.acu-cal-tip__item--en_curso   { border-left-color: var(--color-blue); }
+
+.acu-cal-tip__fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.acu-cal-tip__tipo {
+  font-size: clamp(0.58rem, 0.9vw, 0.66rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+.acu-cal-tip__item--programada .acu-cal-tip__tipo { color: var(--color-accent); }
+.acu-cal-tip__item--en_curso   .acu-cal-tip__tipo { color: var(--color-blue); }
+
+.acu-cal-tip__hora {
+  font-size: clamp(0.62rem, 0.95vw, 0.72rem);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.acu-cal-tip__taller {
+  font-size: clamp(0.7rem, 1.1vw, 0.8rem);
+  font-weight: 700;
+  color: var(--color-text-dark);
+}
+.acu-cal-tip__tema,
+.acu-cal-tip__mat {
+  font-size: clamp(0.65rem, 1vw, 0.75rem);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.acu-cal-tip__mat { color: var(--color-text-dark); }
+
+/* ── Leyenda ─────────────────────────────────────────────────────────────── */
+.acu-cal-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: clamp(0.4rem, 1.2vw, 0.85rem);
+  font-size: clamp(0.62rem, 0.95vw, 0.72rem);
+  color: var(--color-text-muted);
+}
+.acu-cal-leyenda__item { display: inline-flex; align-items: center; gap: 0.3rem; }
+.acu-cal-leyenda__punto {
+  width: clamp(0.6rem, 1vw, 0.7rem);
+  height: clamp(0.6rem, 1vw, 0.7rem);
+  border-radius: 3px;
+}
+.acu-cal-leyenda__punto--vino { background: var(--color-teal-light); box-shadow: inset 0 0 0 1px var(--color-primary); }
+.acu-cal-leyenda__punto--prog { box-shadow: inset 0 0 0 1.5px var(--color-accent); }
+.acu-cal-leyenda__ayuda { flex-basis: 100%; }
+
+@media (hover: none) {
+  .acu-cal-dia--con:hover { transform: none; outline: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .acu-cal-tip { animation: none; }
+  .acu-cal-dia--con { transition: none; }
+}

@@ -1,3 +1,5 @@
+import { isYoutubeUrl } from './youtube.js'
+
 /**
  * Tipo de una evidencia. El backend solo acepta estos dos valores, en mayúsculas
  * (cualquier otro, o si falta, responde 400). El front los usa para previsualizar
@@ -20,6 +22,7 @@ const VIDEO_EXT = ['mp4', 'webm', 'mov', 'm4v', 'ogv', 'ogg']
  * deducir (URLs de Drive, YouTube o sin extensión): ahí la persona debe elegirlo.
  */
 export const guessEvidenceType = (url) => {
+  if (isYoutubeUrl(url)) return 'VIDEO'
   try {
     const ext = new URL(String(url).trim()).pathname.split('.').pop()?.toLowerCase()
     if (IMAGE_EXT.includes(ext)) return 'IMAGE'

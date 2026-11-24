@@ -70,7 +70,7 @@ const Sidebar = ({ open = false, onClose }) => {
               <p className="app-sidebar__empty">No hay vistas disponibles para este rol en este módulo.</p>
             ) : (
               <ul className="app-sidebar__list" role="list">
-                {items.map(item => {
+                {items.filter(item => !item.hidden).map(item => {
                   const activo = isItemActive(item, pathname)
                   return (
                     <li key={item.to}>

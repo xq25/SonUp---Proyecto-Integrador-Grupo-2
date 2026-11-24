@@ -1248,3 +1248,289 @@
 .resultado-edit__texto:focus { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 .resultado-edit__acciones { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.35rem; }
 .resultado-edit__acciones a.btn-volver { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* ── Lista de sesiones dentro de tarjeta de taller ───────────────────────── */
+.taller-sesiones {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.6rem;
+}
+
+.taller-sesion-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: clamp(0.3rem, 0.8vw, 0.45rem) clamp(0.4rem, 1vw, 0.6rem);
+  background: var(--color-bg);
+  border-radius: 8px;
+}
+
+.taller-sesion-badge {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.taller-sesion-badge--planned     { background: #fff8e6; color: #8a6200; }
+.taller-sesion-badge--in_progress { background: var(--color-teal-light); color: var(--color-primary); }
+.taller-sesion-badge--finished    { background: #f0f0f0; color: #666; }
+
+.taller-sesion-tema {
+  flex: 1;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.taller-sesion-horario {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.taller-sesion-editar {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ── Sesiones: botones separados (nueva / iniciar o continuar) ─────────────── */
+.btn-nueva-sesion {
+  padding: clamp(0.45rem, 1vw, 0.6rem) clamp(0.8rem, 1.6vw, 1.1rem);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  white-space: nowrap;
+}
+.btn-nueva-sesion:hover { background: var(--color-teal-light); }
+.taller-btn-finalizar { background: var(--color-accent); }
+.taller-btn-finalizar:hover:not(:disabled) { background: var(--color-accent); filter: brightness(0.92); }
+.taller-item__acciones .btn-publicar--sm:disabled { cursor: not-allowed; }
+
+.taller-sesion-row--siguiente {
+  outline: 1.5px solid var(--color-accent);
+  outline-offset: -1.5px;
+  background: var(--color-accent-light);
+}
+.taller-sesion-siguiente {
+  margin-left: 0.4rem;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.taller-sesion-acciones {
+  display: inline-flex;
+  gap: clamp(0.3rem, 0.8vw, 0.45rem);
+  margin-left: auto;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.taller-sesion-acciones .taller-sesion-editar { margin-left: 0; }
+.taller-sesion-acciones .btn-volver,
+.taller-sesion-acciones .btn-publicar--sm {
+  padding: clamp(0.3rem, 0.7vw, 0.4rem) clamp(0.6rem, 1.2vw, 0.85rem);
+  font-size: var(--fs-xs);
+  margin-top: 0;
+  width: auto;
+}
+.taller-sesion-eliminar { color: #8C2B22; }
+.taller-sesion-eliminar:hover { border-color: #8C2B22; }
+.taller-sesion-confirmar {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(0.4rem, 1vw, 0.6rem);
+  padding: clamp(0.45rem, 1vw, 0.6rem) clamp(0.6rem, 1.2vw, 0.8rem);
+  border-radius: 8px;
+  background: #FDF2F2;
+  font-size: var(--fs-xs);
+  color: #8C2B22;
+}
+.taller-sesion-confirmar p { margin: 0; flex: 1 1 clamp(12rem, 40vw, 24rem); }
+.talleres-estado--izq { text-align: left; padding: clamp(0.3rem, 0.8vw, 0.45rem) 0; }
+.talleres-estado--nota { font-size: var(--fs-xs); color: #8a6200; }
+
+/* ── Paso 1: modo de la sesión y acciones ─────────────────────────────────── */
+.sesion-modo {
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  padding: clamp(0.15rem, 0.4vw, 0.25rem) clamp(0.5rem, 1vw, 0.7rem);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.sesion-modo--nueva      { background: var(--color-teal-light); color: var(--color-primary); }
+.sesion-modo--programada { background: var(--color-accent-light); color: #8a6200; }
+.sesion-modo--curso      { background: var(--color-primary); color: var(--color-white); }
+
+.btn-ahora {
+  align-self: flex-start;
+  margin-top: calc(-1 * clamp(0.3rem, 0.8vw, 0.5rem));
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.sesion-aviso { font-size: var(--fs-xs); }
+
+.sesion-acciones {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: clamp(0.5rem, 1.2vw, 0.75rem);
+  align-items: stretch;
+}
+.sesion-acciones .btn-publicar { margin-top: 0; }
+.sesion-acciones .btn-volver { width: 100%; }
+.sesion-acciones .btn-volver:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.vp-materiales {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(0.25rem, 0.6vw, 0.35rem);
+  margin-top: clamp(0.3rem, 0.8vw, 0.45rem);
+}
+.vp-materiales li {
+  font-size: var(--fs-xs);
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--color-teal-light);
+  color: var(--color-primary);
+}
+
+@media (max-width: 600px) {
+  .sesion-acciones { grid-template-columns: 1fr; }
+  .taller-item__acciones > * { flex: 1 1 auto; }
+  .taller-sesion-acciones { margin-left: 0; width: 100%; }
+  .taller-sesion-tema { flex-basis: 100%; white-space: normal; }
+}
+
+/* Acciones del taller en una fila (el botón base ocupa todo el ancho) */
+.taller-item__acciones .btn-publicar,
+.taller-item__acciones .btn-volver {
+  width: auto;
+  margin-top: 0;
+  padding: clamp(0.45rem, 1vw, 0.6rem) clamp(0.8rem, 1.6vw, 1.1rem);
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .taller-item__acciones .btn-publicar,
+  .taller-item__acciones .btn-volver { flex: 1 1 auto; white-space: normal; }
+}
+
+/* ── Evidencias: vista previa de YouTube ─────────────────────────────────── */
+.evi-youtube {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin-top: clamp(0.35rem, 0.9vw, 0.5rem);
+  border: 0;
+  border-radius: 8px;
+  background: #000;
+}
+.evi-youtube__nota {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.evi-img-prev {
+  display: block;
+  max-width: 100%;
+  max-height: 260px;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  object-fit: contain;
+  border: 1px solid #DFE5E2;
+}
+
+/* ── Finalizar sesión: hora real de fin ──────────────────────────────────── */
+.fin-aviso {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0;
+}
+.fin-hora {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: clamp(0.55rem, 1.4vw, 0.8rem) clamp(0.7rem, 1.6vw, 1rem);
+  margin: clamp(0.4rem, 1vw, 0.6rem) 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.35rem, 0.9vw, 0.5rem);
+}
+.fin-hora legend { padding: 0 0.3rem; }
+.fin-hora__campos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: clamp(0.5rem, 1.2vw, 0.75rem);
+}
+.fin-hora__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1 1 clamp(8rem, 20vw, 11rem);
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+}
+.fin-hora__ahora { margin-top: 0; align-self: center; }
+.fin-hora__ayuda { font-size: var(--fs-xs); color: var(--color-text-muted); }
+
+/* ── Resultados: acumulado y sesiones por fecha ──────────────────────────── */
+.resultado-sesion__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: clamp(0.25rem, 0.8vw, 0.6rem);
+}
+.resultado-sesion__titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(0.35rem, 0.9vw, 0.5rem);
+  font-size: clamp(0.95rem, 1.6vw, 1.05rem);
+}
+.resultado-sesion__n {
+  display: inline-grid;
+  place-items: center;
+  width: clamp(1.35rem, 2.2vw, 1.6rem);
+  height: clamp(1.35rem, 2.2vw, 1.6rem);
+  border-radius: 50%;
+  background: var(--color-teal-light);
+  color: var(--color-primary);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+}
+.resultado-sesion__meta { font-size: var(--fs-xs); color: var(--color-text-muted); }
+.resultado-seccion {
+  font-size: clamp(0.8rem, 1.3vw, 0.9rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-top: clamp(0.5rem, 1.5vw, 1rem);
+}
+.resultado-acumulado .resultado-tabla-wrap { border-color: var(--color-primary); }

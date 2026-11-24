@@ -12,6 +12,14 @@ export const getSkillCategories = () => api.get('/skill-categories')
 
 export const getStudentCategoryAverages = (studentId) => api.get(`/students/${studentId}/category-averages`)
 
+export const getStudentProgress = (studentId, { from, to } = {}) => {
+  const params = new URLSearchParams()
+  if (from) params.set('from', from)
+  if (to)   params.set('to', to)
+  const qs = params.toString()
+  return api.get(`/students/${studentId}/progress${qs ? `?${qs}` : ''}`)
+}
+
 export const getStudentSkills = (studentId) => api.get(`/students/${studentId}/skills`)
 
 export const createSkillCategory = (body) => api.post('/skill-categories', body)

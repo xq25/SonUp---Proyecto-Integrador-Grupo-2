@@ -12,7 +12,7 @@ const staffMenu = (base, extra = [], etiquetas = {}) => [
   { id: 'participantes', label: etiquetas.participantes ?? 'Participantes', icon: 'users',        to: `${base}/participante`,  match: 'prefix' },
   { id: 'planeacion',    label: 'Planeación',           icon: 'clipboard',    to: `${base}/planeacion`,    match: 'prefix' },
   { id: 'sesiones',      label: 'Sesiones',             icon: 'play',         to: `${base}/talleres`,      match: 'prefix' },
-  { id: 'habilidades',   label: 'Habilidades y juegos', icon: 'sparkles',     to: `${base}/habilidades`,   match: 'prefix' },
+  { id: 'habilidades',   label: 'Habilidades y juegos', icon: 'sparkles',     to: `${base}/habilidades`,   match: 'prefix', hidden: true },
   { id: 'arbol',         label: 'Árbol de habilidades', icon: 'tree',         to: `${base}/arbol-habilidades`, match: 'prefix' },
   { id: 'informes',      label: 'Informes',             icon: 'file',         to: `${base}/informes`,      match: 'prefix' },
   { id: 'certificados',  label: 'Certificados',         icon: 'medal',        to: `${base}/certificados`,  match: 'prefix' },

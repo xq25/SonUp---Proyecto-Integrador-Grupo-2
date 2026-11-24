@@ -63,7 +63,7 @@ const NAV_ITEMS = [
   { id: 'inicio',        label: 'Inicio',              icon: <HomeIcon />,          ruta: '/administrador/inicio'        },
   { id: 'participantes', label: 'Participantes',        icon: <ParticipantesIcon />, ruta: '/administrador/participante'   },
   { id: 'talleres',      label: 'Talleres y sesiones',  icon: <TalleresIcon />,      ruta: '/administrador/talleres'      },
-  { id: 'habilidades',   label: 'Habilidades y juegos', icon: <HabilidadesIcon />,   ruta: '/administrador/habilidades'   },
+  { id: 'habilidades',   label: 'Habilidades y juegos', icon: <HabilidadesIcon />,   ruta: '/administrador/habilidades',   hidden: true },
   { id: 'informes',      label: 'Informes',             icon: <InformesIcon />,      ruta: '/administrador/informes'      },
   { id: 'certificados',  label: 'Certificados',         icon: <CertificadosIcon />,  ruta: '/administrador/certificados'  },
   { id: 'evidencias',    label: 'Evidencias',           icon: <EvidenciasIcon />,    ruta: '/administrador/evidencias'    },
@@ -124,7 +124,7 @@ const AdministradorLayout = () => {
           <div className="tl-sidebar__logo"><Logo /></div>
           <nav>
             <ul className="tl-nav-list" role="list">
-              {NAV_ITEMS.map(item => (
+              {NAV_ITEMS.filter(item => !item.hidden).map(item => (
                 <li key={item.id}>
                   <button
                     className={`tl-nav-item${isActive(item) ? ' tl-nav-item--active' : ''}`}

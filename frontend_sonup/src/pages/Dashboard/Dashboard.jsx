@@ -7,6 +7,9 @@ import { getChild } from '../../services/children.js'
 import { getStudentAttendances } from '../../services/attendances.js'
 import { getStudentCategoryAverages } from '../../services/skills.js'
 import { getWorkshops, completeWorkshopsFromAttendances } from '../../services/workshops.js'
+import { getSesionesDelJoven, proximasSesiones } from '../../services/studentSessions.js'
+import { formatHora } from '../../utils/workshops.js'
+import ProximasSesiones from '../../components/ProximasSesiones/ProximasSesiones.jsx'
 import './Dashboard.css'
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -68,6 +71,8 @@ const Dashboard = () => {
   const [proximaClase, setProximaClase] = useState(null)
   const [calificaciones, setCalificaciones] = useState([])
   const [tallereNombre, setTallerNombre] = useState('')
+  const [sesiones,     setSesiones]     = useState([])
+  const [talleresMapa, setTalleresMapa] = useState({})
   const [cargando,     setCargando]     = useState(true)
   const [errorCarga,   setErrorCarga]   = useState('')
 
@@ -86,6 +91,9 @@ const Dashboard = () => {
         setNiño(child)
         // Los talleres ya finalizados no vienen en el listado del joven: se completan por id
         const workshops = await completeWorkshopsFromAttendances(workshopsActivos, attendances)
+        setTalleresMapa(Object.fromEntries(workshops.map(w => [String(w.id), w])))
+        // Sesiones de los talleres disponibles y de los que ya asistió (próximas, con materiales)
+        setSesiones(await getSesionesDelJoven(workshopsActivos, attendances))
 
         setCalificaciones(
           (categoryAverages ?? []).map(cat => ({
@@ -109,6 +117,10 @@ const Dashboard = () => {
     }
     load()
   }, [activeChildId])
+
+  /* La próxima sesión (la en curso o la siguiente programada); si no hay, el taller de siempre */
+  const proximaSesion = proximasSesiones(sesiones)[0] ?? null
+  const tallerProxima = proximaSesion ? talleresMapa[String(proximaSesion.workshopId)] : null
 
   const nombre = niño
     ? (niño.firstName || [niño.firstName, niño.lastName].filter(Boolean).join(' ') || 'Joven')
@@ -142,16 +154,23 @@ const Dashboard = () => {
       {!cargando && !errorCarga && (
         <button
           className="joven-musica-card"
-          aria-label={proximaClase ? `Ir a ${proximaClase.name}` : 'Mis clases'}
+          aria-label={proximaSesion ? `Próxima clase: ${proximaSesion.topic}` : proximaClase ? `Ir a ${proximaClase.name}` : 'Mis clases'}
           onClick={() => navigate('/joven/mis-clases')}
         >
           <div className="joven-musica-card__icono"><MusicIcon /></div>
           <div className="joven-musica-card__content">
             <p className="joven-musica-card__tag">MI PRÓXIMA CLASE</p>
             <p className="joven-musica-card__titulo">
-              {proximaClase ? proximaClase.name : 'Ver mis clases'}
+              {proximaSesion ? proximaSesion.topic : proximaClase ? proximaClase.name : 'Ver mis clases'}
             </p>
-            {proximaClase?.startsAt && (
+            {proximaSesion ? (
+              <p className="joven-musica-card__sub">
+                {tallerProxima?.name ? `${tallerProxima.name} · ` : ''}
+                {proximaSesion.status === 'in_progress'
+                  ? 'En curso ahora'
+                  : `${new Date(proximaSesion.startsAt).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Bogota' })}, ${formatHora(proximaSesion.startsAt)}`}
+              </p>
+            ) : proximaClase?.startsAt && (
               <p className="joven-musica-card__sub">
                 Desde {new Date(proximaClase.startsAt).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}
               </p>
@@ -159,6 +178,13 @@ const Dashboard = () => {
           </div>
           <span className="joven-musica-card__deco" aria-hidden="true" />
         </button>
+      )}
+
+      {/* Próximas sesiones con lo que debe llevar */}
+      {!errorCarga && (
+        <div className="joven-proximas">
+          <ProximasSesiones sesiones={sesiones} talleres={talleresMapa} cargando={cargando} titulo="Mis próximas sesiones" />
+        </div>
       )}
 
       {/* Los módulos en grid (el joven no tiene sidebar) */}

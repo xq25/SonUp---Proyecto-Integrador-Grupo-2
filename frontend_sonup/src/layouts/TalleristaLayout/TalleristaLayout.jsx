@@ -63,7 +63,7 @@ const NAV_ITEMS = [
   { id: 'inicio',        label: 'Inicio',             icon: <HomeIcon />,          ruta: '/tallerista/inicio',       enabled: true  },
   { id: 'participantes', label: 'Participantes',       icon: <ParticipantesIcon />, ruta: '/tallerista/participante',   enabled: true  },
   { id: 'talleres',      label: 'Talleres y sesiones', icon: <TalleresIcon />,      ruta: '/tallerista/talleres',     enabled: true  },
-  { id: 'habilidades',   label: 'Habilidades y juegos',icon: <HabilidadesIcon />,   ruta: '/tallerista/habilidades',  enabled: true  },
+  { id: 'habilidades',   label: 'Habilidades y juegos',icon: <HabilidadesIcon />,   ruta: '/tallerista/habilidades',  enabled: true, hidden: true  },
   { id: 'informes',      label: 'Informes',            icon: <InformesIcon />,      ruta: '/tallerista/informes',     enabled: true  },
   { id: 'certificados',  label: 'Certificados',        icon: <CertificadosIcon />,  ruta: '/tallerista/certificados', enabled: true  },
   { id: 'evidencias',    label: 'Evidencias',          icon: <EvidenciasIcon />,    ruta: '/tallerista/evidencias',   enabled: true  },
@@ -130,7 +130,7 @@ const TalleristaLayout = () => {
 
           <nav>
             <ul className="tl-nav-list" role="list">
-              {NAV_ITEMS.map(item => {
+              {NAV_ITEMS.filter(item => !item.hidden).map(item => {
                 const isActive = item.id === 'participantes'
                   ? location.pathname.startsWith('/tallerista/participante')
                   : location.pathname === item.ruta

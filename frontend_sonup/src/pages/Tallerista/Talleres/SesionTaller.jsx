@@ -1,12 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getChildren } from '../../../services/children.js'
-import { getWorkshopSkills, finishWorkshop } from '../../../services/workshops.js'
+import { getWorkshopSkills } from '../../../services/workshops.js'
 import { getSkills, getSkillCategories } from '../../../services/skills.js'
-import { createAttendance, updateAttendance, getWorkshopAttendances } from '../../../services/attendances.js'
+import { createAttendance, updateAttendance, deleteAttendance } from '../../../services/attendances.js'
+import { createSession, updateSession, startSession, finishSession, getSessionAttendances } from '../../../services/sessions.js'
 import { createEvaluation, deleteEvaluation, getEvaluationScales, getAttendanceEvaluations } from '../../../services/evaluations.js'
 import { createEvidence } from '../../../services/evidences.js'
 import { isEvidenceType, guessEvidenceType } from '../../../utils/evidenceType.js'
-import { toBogotaDateInput, toBogotaTimeInput, todayBogota, nombreDe, formatFecha } from '../../../utils/workshops.js'
+import {
+  toBogotaDateInput, toBogotaTimeInput, todayBogota, nombreDe, bogotaToISO, formatFecha, formatHora,
+  stepsToText, textToSteps, materialsToText, textToMaterials,
+} from '../../../utils/workshops.js'
+import { isYoutubeUrl, toYoutubeEmbed } from '../../../utils/youtube.js'
 import EvidenceTypeField from '../../../components/EvidenceTypeField/EvidenceTypeField.jsx'
 import CompartirModal from '../../../components/CompartirModal/CompartirModal.jsx'
 import { createShareDocument } from '../../../utils/share-document.js'
@@ -25,7 +30,7 @@ const FASES = [
 ]
 
 const TITULOS = {
-  1: { h: 'Datos de la sesión',        sub: 'Define el tema, el objetivo y la actividad de la sesión de hoy.' },
+  1: { h: 'Datos de la sesión',        sub: 'Define el tema, la fecha y hora de inicio, el objetivo y los materiales de la sesión.' },
   2: { h: 'Toma de asistencia',        sub: 'Registra quiénes participaron en la sesión.' },
   3: { h: 'Valoraciones y evidencias', sub: 'Valora los logros y adjunta evidencias de la actividad.' },
 }
@@ -33,7 +38,7 @@ const TITULOS = {
 const Stepper = ({ fase }) => (
   <div className="stepper" role="list">
     {FASES.map(f => {
-      const done = fase > f.n
+      const done   = fase > f.n
       const active = fase === f.n
       return (
         <div key={f.n} role="listitem"
@@ -49,66 +54,95 @@ const Stepper = ({ fase }) => (
   </div>
 )
 
-const iniciales = (nombre) => nombre.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
+const iniciales = (nombre) =>
+  nombre.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
 
 /**
- * Taller en curso (`active`): datos de la sesión → asistencia → valoraciones/evidencias → finalizar.
- * Todo lo que se guarda aquí lo exige el backend con el taller en `active`.
+ * Taller activo: datos de la sesión (paso 1) → asistencia (paso 2) → valoraciones (paso 3) → finalizar sesión.
+ * Props:
+ *   session: WorkshopSession | null
+ *     - null          → sesión nueva: formulario en blanco
+ *     - 'planned'     → sesión por iniciar: se muestran sus datos para revisarlos y luego iniciarla
+ *     - 'in_progress' → continuar: va directo al paso 2 (o al paso 1 con `modoEditar`)
+ *   modoEditar: abre el paso 1 para corregir los datos de una sesión programada o en curso
+ *   otraEnCurso: sesión del taller que ya está en curso (si es otra): impide iniciar esta
+ *   onSesionFinalizada(): llamado tras finalizar la sesión (vuelve a la lista y recarga sesiones)
  */
-const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) => {
-  const workshopId = String(taller.id)
-  const [fase, setFase] = useState(1)
+const SesionTaller = ({ taller, session = null, modoEditar = false, otraEnCurso = null, onVolver, onSesionFinalizada }) => {
+  const workshopId   = String(taller.id)
 
-  /* Datos cargados */
-  const [estudiantes, setEstudiantes]   = useState([])
-  const [habilidades, setHabilidades]   = useState([])
-  const [escalas, setEscalas]           = useState([])
-  const [asistencias, setAsistencias]   = useState([])      // todas las del taller (varias sesiones)
-  const [cargando, setCargando]         = useState(true)
-  const [errorCarga, setErrorCarga]     = useState('')
+  const [sessionActual, setSessionActual] = useState(session)
+  // Se deriva de la sesión guardada (no de la prop): tras iniciarla, el horario queda fijo
+  const estaEnCurso  = sessionActual?.status === 'in_progress'
+  const esNueva      = !sessionActual?.id
+  const [fase, setFase]                   = useState(session?.status === 'in_progress' && !modoEditar ? 2 : 1)
 
-  /* Paso 1 (solo para el resumen que se comparte: no existe en el backend) */
+  /* ── Datos cargados ── */
+  const [estudiantes, setEstudiantes] = useState([])
+  const [habilidades, setHabilidades] = useState([])
+  const [escalas, setEscalas]         = useState([])
+  const [asistencias, setAsistencias] = useState([])
+  const [cargando, setCargando]       = useState(true)
+  const [errorCarga, setErrorCarga]   = useState('')
+
+  /* ── Paso 1 ── */
   const [sesion, setSesion] = useState(() => {
     const hoy = todayBogota()
+    if (session) {
+      return {
+        fecha:      toBogotaDateInput(session.startsAt) || hoy,
+        horaInicio: session.startsAt ? toBogotaTimeInput(new Date(session.startsAt)) : toBogotaTimeInput(new Date()),
+        tema:       session.topic     || '',
+        objetivo:   session.objective || '',
+        pasos:      textToSteps(session.steps),
+        materiales: textToMaterials(session.materials),
+      }
+    }
+    // Sesión nueva: todo en blanco; solo se sugiere la fecha (hoy, o el inicio del taller si es futuro)
     const inicio = toBogotaDateInput(taller.startsAt)
     return {
-      fecha: inicio && inicio > hoy ? inicio : hoy,
-      horaInicio: toBogotaTimeInput(new Date()),
-      horaFin: '',
-      tema: '', objetivo: '', pasos: [], materiales: [],
+      fecha:      inicio && inicio > hoy ? inicio : hoy,
+      horaInicio: '',
+      tema:       '',
+      objetivo:   '',
+      pasos:      [],
+      materiales: [],
     }
   })
-  const [nuevoPaso, setNuevoPaso]         = useState('')
-  const [nuevoMaterial, setNuevoMaterial] = useState('')
+  const [nuevoPaso, setNuevoPaso]           = useState('')
+  const [nuevoMaterial, setNuevoMaterial]   = useState('')
+  const [continuando, setContinuando]       = useState(false)
+  const [errorContinuar, setErrorContinuar] = useState('')
 
-  /* Paso 2 */
-  const [asistencia, setAsistencia] = useState({})          // childId → bool (solo quien aún no tiene registro)
+  /* ── Paso 2 ── */
+  const [asistenciaLocal, setAsistenciaLocal]   = useState({})    // childId → bool override
   const [guardandoAsistencia, setGuardandoAsistencia] = useState(false)
-  const [erroresAsistencia, setErroresAsistencia] = useState([])
+  const [erroresAsistencia, setErroresAsistencia]     = useState([])
 
-  /* Paso 3 */
+  /* ── Paso 3: valoraciones ── */
   const [participanteActivo, setParticipanteActivo] = useState(null)
-  const [vals, setVals]           = useState({})            // `${dia}|${childId}|${wsId}` → scaleId
-  const [originales, setOriginales] = useState({})          // lo ya guardado en el servidor
-  const [evalCargadas, setEvalCargadas] = useState({})      // attendanceId → true
+  const [vals, setVals]           = useState({})
+  const [originales, setOriginales] = useState({})
+  const [evalCargadas, setEvalCargadas] = useState({})
   const [guardandoVal, setGuardandoVal] = useState(false)
-  const [resultadoVal, setResultadoVal] = useState(null)    // { ok, errores: [] }
-  const [observacion, setObservacion] = useState('')
+  const [resultadoVal, setResultadoVal] = useState(null)
+  const [observacion, setObservacion]           = useState('')
   const [observacionGuardada, setObservacionGuardada] = useState('')
 
-  /* Evidencias */
-  const [evi, setEvi] = useState({ url: '', title: '', type: '' })
+  /* ── Evidencias ── */
+  const [evi, setEvi]           = useState({ url: '', title: '', type: '' })
   const [tipoManual, setTipoManual] = useState(false)
-  const [eviEstudiantes, setEviEstudiantes] = useState({})  // childId → bool (default true)
-  const [subiendoEvi, setSubiendoEvi] = useState(false)
-  const [errorEvi, setErrorEvi] = useState('')
+  const [eviEstudiantes, setEviEstudiantes] = useState({})
+  const [subiendoEvi, setSubiendoEvi]       = useState(false)
+  const [errorEvi, setErrorEvi]             = useState('')
   const [erroresCampoEvi, setErroresCampoEvi] = useState({})
-  const [eviSubidas, setEviSubidas] = useState([])
+  const [eviSubidas, setEviSubidas]         = useState([])
 
-  /* Finalizar / compartir */
+  /* ── Finalizar sesión ── */
   const [confirmandoFin, setConfirmandoFin] = useState(false)
-  const [finalizando, setFinalizando] = useState(false)
-  const [errorFin, setErrorFin] = useState('')
+  const [finalizando, setFinalizando]       = useState(false)
+  const [errorFin, setErrorFin]             = useState('')
+  const [fin, setFin]                       = useState({ fecha: '', hora: '' })   // hora real de fin (Bogotá)
   const [mostrarCompartir, setMostrarCompartir] = useState(false)
   const [archivoResumen, setArchivoResumen] = useState(null)
 
@@ -117,14 +151,18 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
     let vivo = true
     ;(async () => {
       try {
-        const [kids, wSkills, allSkills, cats, escs, atts] = await Promise.all([
-          getChildren(), getWorkshopSkills(workshopId), getSkills(), getSkillCategories(),
-          getEvaluationScales(), getWorkshopAttendances(workshopId),
-        ])
+        const promises = [
+          getChildren(), getWorkshopSkills(workshopId),
+          getSkills(), getSkillCategories(), getEvaluationScales(),
+        ]
+        if (estaEnCurso && session?.id) promises.push(getSessionAttendances(session.id))
+        const results = await Promise.all(promises)
+        const [kids, wSkills, allSkills, cats, escs] = results
+        const atts = results[5] ?? []
         if (!vivo) return
         setHabilidades(wSkills.map(ws => {
           const skill = allSkills.find(s => String(s.id) === String(ws.skillId))
-          const cat = cats.find(c => String(c.id) === String(skill?.skillCategoryId))
+          const cat   = cats.find(c => String(c.id) === String(skill?.skillCategoryId))
           return {
             ...ws, id: String(ws.id),
             skillNombre: skill?.name ?? `Habilidad ${ws.skillId}`,
@@ -135,96 +173,199 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
         setEstudiantes(kids.map(k => ({ ...k, childId: String(k.id ?? k.childId) })))
         setAsistencias(atts.map(a => ({ ...a, id: String(a.id), studentId: String(a.studentId) })))
       } catch (err) {
-        if (vivo) setErrorCarga(`No se pudieron cargar los datos del taller: ${err.message}`)
+        if (vivo) setErrorCarga(`No se pudieron cargar los datos: ${err.message}`)
       } finally {
         if (vivo) setCargando(false)
       }
     })()
     return () => { vivo = false }
-  }, [workshopId])
+  }, [workshopId])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── Fecha efectiva de la asistencia ── */
-  const iniciado = !taller.startsAt || new Date(taller.startsAt) <= new Date()
-
-  /** Hora de la sesión; nunca futura (la API la rechaza) ni anterior al inicio del taller. */
-  const calcularAttendedAt = useCallback(() => {
-    // Margen de 1 min: si el reloj de este equipo adelanta al del servidor, «ahora» llegaría como fecha futura (400)
-    const ahora = new Date(Date.now() - 60_000)
-    let c = sesion.fecha && sesion.horaInicio ? new Date(`${sesion.fecha}T${sesion.horaInicio}:00-05:00`) : ahora
-    if (Number.isNaN(c.getTime())) c = ahora
-    if (c > ahora) c = ahora
-    if (taller.startsAt && c < new Date(taller.startsAt)) c = new Date(taller.startsAt)
-    return c
-  }, [sesion.fecha, sesion.horaInicio, taller.startsAt])
-
-  const dia = toBogotaDateInput(calcularAttendedAt())
-
-  /** Asistencias de la sesión de ese día (la API permite una por estudiante y día). */
-  const delDia = useMemo(() => {
+  /* ── Mapa studentId → attendance ── */
+  const attendanceByStudent = useMemo(() => {
     const m = {}
-    asistencias.forEach(a => { if (toBogotaDateInput(a.attendedAt) === dia) m[a.studentId] = a })
+    asistencias.forEach(a => { m[String(a.studentId)] = a })
     return m
-  }, [asistencias, dia])
+  }, [asistencias])
 
-  const presentesLista = estudiantes.filter(e => delDia[e.childId])
-  const marcado = (id) => Boolean(delDia[id]) || (asistencia[id] ?? true)
-  const totalPresentes = estudiantes.filter(e => marcado(e.childId)).length
-  const total = estudiantes.length
-  const pct = total > 0 ? Math.round((totalPresentes / total) * 100) : 0
-  const yaRegistrados = Object.keys(delDia).length
-  const porRegistrar = estudiantes.filter(e => !delDia[e.childId] && marcado(e.childId))
+  const isPresente = (childId) =>
+    asistenciaLocal[childId] !== undefined ? asistenciaLocal[childId] : Boolean(attendanceByStudent[String(childId)])
+
+  const presentesLista    = estudiantes.filter(e => isPresente(e.childId))
+  const totalPresentes    = presentesLista.length
+  const total             = estudiantes.length
+  const pct               = total > 0 ? Math.round((totalPresentes / total) * 100) : 0
+  const porRegistrar      = estudiantes.filter(e =>  isPresente(e.childId) && !attendanceByStudent[String(e.childId)])
+  const porEliminar       = estudiantes.filter(e => !isPresente(e.childId) &&  attendanceByStudent[String(e.childId)])
+  const hayPendientesAsis = porRegistrar.length > 0 || porEliminar.length > 0
 
   /* ── Paso 1 ── */
-  const agregarPaso = () => { if (nuevoPaso.trim()) { setSesion(s => ({ ...s, pasos: [...s.pasos, nuevoPaso.trim()] })); setNuevoPaso('') } }
+  const agregarPaso     = () => { if (nuevoPaso.trim()) { setSesion(s => ({ ...s, pasos: [...s.pasos, nuevoPaso.trim()] })); setNuevoPaso('') } }
   const agregarMaterial = () => { if (nuevoMaterial.trim()) { setSesion(s => ({ ...s, materiales: [...s.materiales, nuevoMaterial.trim()] })); setNuevoMaterial('') } }
+
+  const inicioISO = bogotaToISO(sesion.fecha, sesion.horaInicio)
+  const esFuturo  = inicioISO ? new Date(inicioISO) > new Date() : false
+  const fechaMin  = toBogotaDateInput(taller.startsAt) || undefined
+  const temaValido = sesion.tema.trim().length >= 2
+
+  /** Pone fecha y hora actuales (para dictar ya una sesión programada para más tarde). */
+  const usarAhora = () => {
+    const ahora = new Date()
+    setSesion(s => ({ ...s, fecha: toBogotaDateInput(ahora), horaInicio: toBogotaTimeInput(ahora) }))
+    setErrorContinuar('')
+  }
+
+  /** Por qué no se puede iniciar ahora (null si sí se puede). */
+  const motivoNoIniciar = estaEnCurso ? null
+    : otraEnCurso ? `Ya hay una sesión en curso en este taller («${otraEnCurso.topic}»). Finalízala primero.`
+    : esFuturo ? `La hora de inicio todavía no llega (${formatFecha(inicioISO)}, ${formatHora(inicioISO)}). Si la sesión se dicta ahora, usa la fecha y hora actuales.`
+    : null
+
+  /** Cuerpo de la sesión para la API. Incluye el paso o material escrito y aún no agregado. */
+  const cuerpoSesion = () => {
+    const pasos      = [...sesion.pasos, nuevoPaso.trim()].filter(Boolean)
+    const materiales = [...sesion.materiales, nuevoMaterial.trim()].filter(Boolean)
+    if (nuevoPaso.trim() || nuevoMaterial.trim()) {
+      setSesion(s => ({ ...s, pasos, materiales }))
+      setNuevoPaso(''); setNuevoMaterial('')
+    }
+    // Vacío se envía como "": la API lo guarda como null (así también se borra un campo)
+    return {
+      topic:     sesion.tema.trim(),
+      objective: sesion.objetivo.trim(),
+      steps:     stepsToText(pasos),
+      materials: materialsToText(materiales),
+    }
+  }
+
+  const cargarAsistenciasDe = async (sessId) => {
+    const atts = await getSessionAttendances(sessId)
+    setAsistencias(atts.map(a => ({ ...a, id: String(a.id), studentId: String(a.studentId) })))
+  }
+
+  /**
+   * Guarda la sesión y, si `iniciar`, la inicia y pasa a la asistencia.
+   * Sin `iniciar` solo la deja programada y vuelve a la lista.
+   */
+  const continuar = async (iniciar) => {
+    if (!temaValido) {
+      setErrorContinuar('El tema es obligatorio (mínimo 2 caracteres).')
+      return
+    }
+    if (!estaEnCurso && !inicioISO) {
+      setErrorContinuar('Completa la fecha y la hora de inicio.')
+      return
+    }
+    if (iniciar && motivoNoIniciar) {
+      setErrorContinuar(motivoNoIniciar)
+      return
+    }
+    setContinuando(true)
+    setErrorContinuar('')
+    try {
+      const body = cuerpoSesion()
+
+      let sess = sessionActual
+      if (estaEnCurso) {
+        // En curso: solo el contenido (la hora de inicio ya es fija; enviarla daría 409)
+        sess = await updateSession(sess.id, body)
+        setSessionActual(sess)
+        await cargarAsistenciasDe(sess.id)
+        setFase(2)
+        return
+      }
+
+      body.startsAt = inicioISO
+      sess = sess?.id ? await updateSession(sess.id, body) : await createSession(workshopId, body)
+      // Se guarda ya: si iniciar falla (409), el reintento edita esta misma sesión en vez de crear otra
+      setSessionActual(sess)
+
+      if (!iniciar) {
+        onVolver()
+        return
+      }
+
+      sess = await startSession(sess.id)
+      setSessionActual(sess)
+      await cargarAsistenciasDe(sess.id)
+      setFase(2)
+    } catch (err) {
+      setErrorContinuar(err.message)
+    } finally {
+      setContinuando(false)
+    }
+  }
 
   /* ── Paso 2 ── */
   const guardarAsistencia = async () => {
     setGuardandoAsistencia(true)
     setErroresAsistencia([])
-    const attendedAt = calcularAttendedAt().toISOString()
-    const res = await Promise.allSettled(
-      porRegistrar.map(e => createAttendance({ studentId: e.childId, workshopId, attendedAt })),
-    )
+    const sessId = String(sessionActual.id)
+    const res = await Promise.allSettled([
+      ...porRegistrar.map(e => createAttendance({ sessionId: sessId, studentId: e.childId })),
+      ...porEliminar.map(e => deleteAttendance(attendanceByStudent[String(e.childId)].id)),
+    ])
     const nuevas = []
+    const eliminadasIds = new Set()
     const fallos = []
-    res.forEach((r, i) => {
-      if (r.status === 'fulfilled') nuevas.push({ ...r.value, id: String(r.value.id), studentId: String(r.value.studentId ?? porRegistrar[i].childId) })
-      else fallos.push({ nombre: nombreDe(porRegistrar[i], `Estudiante ${porRegistrar[i].childId}`), mensaje: r.reason?.message || 'Error desconocido' })
+
+    porRegistrar.forEach((e, i) => {
+      const r = res[i]
+      if (r.status === 'fulfilled') {
+        nuevas.push({ ...r.value, id: String(r.value.id), studentId: String(r.value.studentId ?? e.childId) })
+      } else {
+        fallos.push({ nombre: nombreDe(e, `Estudiante ${e.childId}`), mensaje: r.reason?.message || 'Error' })
+      }
     })
-    if (nuevas.length) setAsistencias(prev => [...prev, ...nuevas])
+    porEliminar.forEach((e, i) => {
+      const r = res[porRegistrar.length + i]
+      if (r.status === 'fulfilled') {
+        eliminadasIds.add(attendanceByStudent[String(e.childId)].id)
+      } else {
+        fallos.push({ nombre: nombreDe(e, `Estudiante ${e.childId}`), mensaje: r.reason?.message || 'Error al desmarcar' })
+      }
+    })
+
+    const asistenciasActualizadas = [
+      ...asistencias.filter(a => !eliminadasIds.has(a.id)),
+      ...nuevas,
+    ]
+    setAsistencias(asistenciasActualizadas)
+    setAsistenciaLocal({})
     setErroresAsistencia(fallos)
     setGuardandoAsistencia(false)
-    if (fallos.length === 0) await irAValoraciones(nuevas)
+    if (fallos.length === 0) await irAValoraciones(asistenciasActualizadas)
   }
 
-  /** Entra al paso 3 trayendo las valoraciones ya guardadas de la sesión de ese día. */
-  const irAValoraciones = async (recienCreadas = []) => {
-    const existentes = Object.values(delDia).filter(a => !evalCargadas[a.id])
-    const res = await Promise.allSettled(existentes.map(a => getAttendanceEvaluations(a.id)))
+  const irAValoraciones = async (todasAtts = null) => {
+    const atts = todasAtts ?? Object.values(attendanceByStudent)
+    const sinCargar = atts.filter(a => !evalCargadas[a.id])
+    const res = await Promise.allSettled(sinCargar.map(a => getAttendanceEvaluations(a.id)))
     const guardadas = {}
-    const cargadas = {}
+    const cargadas  = {}
     res.forEach((r, i) => {
+      cargadas[sinCargar[i].id] = true
       if (r.status !== 'fulfilled') return
-      cargadas[existentes[i].id] = true
-      r.value.forEach(ev => { guardadas[`${dia}|${existentes[i].studentId}|${ev.workshopSkillId}`] = String(ev.evaluationScaleId) })
+      r.value.forEach(ev => {
+        guardadas[clave(sinCargar[i].studentId, ev.workshopSkillId)] = String(ev.evaluationScaleId)
+      })
     })
-    recienCreadas.forEach(a => { cargadas[a.id] = true })
     setEvalCargadas(prev => ({ ...prev, ...cargadas }))
     setOriginales(prev => ({ ...prev, ...guardadas }))
     setVals(prev => ({ ...guardadas, ...prev }))
-    // Observación común ya guardada
-    const obs = [...new Set([...Object.values(delDia), ...recienCreadas].map(a => a.observation).filter(Boolean))]
+    const obs = [...new Set(atts.map(a => a.observation).filter(Boolean))]
     if (obs.length === 1 && !observacion) { setObservacion(obs[0]); setObservacionGuardada(obs[0]) }
     setFase(3)
   }
 
   /* ── Paso 3: valoraciones ── */
-  const clave = (childId, wsId) => `${dia}|${childId}|${wsId}`
+  const clave  = (childId, wsId) => `${childId}|${wsId}`
   const getVal = (childId, wsId) => vals[clave(childId, wsId)] ?? null
   const setVal = (childId, wsId, v) => setVals(prev => ({ ...prev, [clave(childId, wsId)]: v }))
 
-  const activoId = presentesLista.some(e => e.childId === participanteActivo) ? participanteActivo : presentesLista[0]?.childId ?? null
+  const activoId = presentesLista.some(e => e.childId === participanteActivo)
+    ? participanteActivo
+    : presentesLista[0]?.childId ?? null
 
   const estadoParticipante = (childId) => {
     const n = habilidades.filter(ws => getVal(childId, ws.id)).length
@@ -233,7 +374,7 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
     return `${n} de ${habilidades.length} valoradas`
   }
 
-  const pendientesDeGuardar = Object.entries(vals).filter(([k, v]) => v && originales[k] !== v && k.startsWith(`${dia}|`))
+  const pendientesDeGuardar = Object.entries(vals).filter(([k, v]) => v && originales[k] !== v)
   const obsPendiente = observacion.trim() !== '' && observacion.trim() !== observacionGuardada
 
   const dimensiones = useMemo(() => {
@@ -246,17 +387,16 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
   }, [habilidades])
 
   const nombreEstudiante = (childId) => nombreDe(estudiantes.find(e => e.childId === childId), `Estudiante ${childId}`)
-  const nombreHabilidad = (wsId) => habilidades.find(h => h.id === String(wsId))?.skillNombre ?? `Habilidad ${wsId}`
+  const nombreHabilidad  = (wsId)   => habilidades.find(h => h.id === String(wsId))?.skillNombre ?? `Habilidad ${wsId}`
 
-  /** Quitar una valoración ya guardada (el backend lo permite con el taller en curso). */
   const quitarValoracion = async (childId, wsId) => {
-    const att = delDia[childId]
+    const att = attendanceByStudent[String(childId)]
     if (!att) return
     setResultadoVal(null)
     try {
       await deleteEvaluation(att.id, wsId)
       const k = clave(childId, wsId)
-      setVals(prev => { const n = { ...prev }; delete n[k]; return n })
+      setVals(prev     => { const n = { ...prev }; delete n[k]; return n })
       setOriginales(prev => { const n = { ...prev }; delete n[k]; return n })
     } catch (err) {
       setResultadoVal({ ok: 0, errores: [`${nombreEstudiante(childId)} · ${nombreHabilidad(wsId)}: ${err.message}`] })
@@ -268,26 +408,24 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
     setResultadoVal(null)
     const errores = []
     let ok = 0
-
     const res = await Promise.allSettled(pendientesDeGuardar.map(([k, scaleId]) => {
-      const [, childId, wsId] = k.split('|')
-      const att = delDia[childId]
+      const [childId, wsId] = k.split('|')
+      const att = attendanceByStudent[String(childId)]
       if (!att) return Promise.reject(new Error('Este estudiante no tiene asistencia registrada.'))
       return createEvaluation({ workshopAttendanceId: att.id, workshopSkillId: wsId, evaluationScaleId: String(scaleId) })
     }))
     const guardadas = {}
     res.forEach((r, i) => {
       const [k, scaleId] = pendientesDeGuardar[i]
-      const [, childId, wsId] = k.split('|')
+      const [childId, wsId] = k.split('|')
       if (r.status === 'fulfilled') { ok += 1; guardadas[k] = scaleId }
       else errores.push(`${nombreEstudiante(childId)} · ${nombreHabilidad(wsId)}: ${r.reason?.message || 'Error'}`)
     })
     setOriginales(prev => ({ ...prev, ...guardadas }))
 
-    // Observación del grupo → se guarda en la asistencia de cada presente que no tenga una propia
     if (obsPendiente) {
       const texto = observacion.trim()
-      const objetivo = Object.values(delDia).filter(a => !a.observation || a.observation === observacionGuardada)
+      const objetivo = Object.values(attendanceByStudent).filter(a => !a.observation || a.observation === observacionGuardada)
       const rObs = await Promise.allSettled(objetivo.map(a => updateAttendance(a.id, { observation: texto })))
       const actualizadas = new Set()
       rObs.forEach((r, i) => {
@@ -299,18 +437,13 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
         setObservacionGuardada(texto)
       }
     }
-
     setResultadoVal({ ok, errores })
     setGuardandoVal(false)
   }
 
   /* ── Evidencias ── */
-  const cambiarUrl = (url) => {
-    setEvi(e => {
-      const g = guessEvidenceType(url)
-      return { ...e, url, type: !tipoManual && g ? g : e.type }
-    })
-  }
+  const cambiarUrl = (url) =>
+    setEvi(e => ({ ...e, url, type: !tipoManual && guessEvidenceType(url) ? guessEvidenceType(url) : e.type }))
   const sugerido = guessEvidenceType(evi.url)
 
   const subirEvidencia = async (e) => {
@@ -327,7 +460,6 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
     if (ids.length > 50) errs.students = 'Máximo 50 participantes por evidencia.'
     setErroresCampoEvi(errs)
     if (Object.keys(errs).length) return
-
     setSubiendoEvi(true)
     setErrorEvi('')
     try {
@@ -342,14 +474,29 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
     }
   }
 
-  /* ── Finalizar ── */
-  const finalizar = async () => {
+  /* ── Finalizar sesión ── */
+  const abrirFinalizar = () => {
+    const ahora = new Date()
+    setFin({ fecha: toBogotaDateInput(ahora), hora: toBogotaTimeInput(ahora) })
+    setErrorFin('')
+    setConfirmandoFin(true)
+  }
+
+  const finISO = bogotaToISO(fin.fecha, fin.hora)
+  /** Mismas reglas que el backend: posterior al inicio y no futuro. */
+  const errorHoraFin = !finISO ? 'Indica la fecha y la hora real de fin.'
+    : sessionActual?.startsAt && new Date(finISO) <= new Date(sessionActual.startsAt)
+      ? `El fin debe ser posterior al inicio (${formatFecha(sessionActual.startsAt)}, ${formatHora(sessionActual.startsAt)}).`
+    : new Date(finISO) > new Date() ? 'El fin real no puede ser una hora futura.'
+    : ''
+
+  const finalizarSesion = async () => {
+    if (errorHoraFin) { setErrorFin(errorHoraFin); return }
     setFinalizando(true)
     setErrorFin('')
     try {
-      const actualizado = await finishWorkshop(taller.id)
-      onTallerActualizado?.(actualizado)
-      onFinalizado?.(actualizado)
+      await finishSession(sessionActual.id, finISO)
+      onSesionFinalizada?.()
     } catch (err) {
       setErrorFin(err.message)
       setFinalizando(false)
@@ -366,7 +513,7 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
       title: `Resumen de clase: ${sesion.tema || taller.name}`,
       subtitle: `${taller.name} · ${fechaDisplay}`,
       sections: [
-        { title: 'Datos de la sesión', rows: [['Taller', taller.name], ['Fecha', fechaDisplay], ['Tema', sesion.tema || 'Sin tema registrado']], paragraphs: [sesion.objetivo || 'Sin objetivo registrado'] },
+        { title: 'Datos de la sesión', rows: [['Taller', taller.name], ['Fecha', fechaDisplay], ['Tema', sesion.tema || 'Sin tema']], paragraphs: [sesion.objetivo || 'Sin objetivo'] },
         { title: 'Actividades realizadas', items: sesion.pasos },
         { title: 'Materiales', items: sesion.materiales },
       ],
@@ -374,7 +521,7 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
     setMostrarCompartir(true)
   }
 
-  /* ─────────────────────────────── Render ─────────────────────────────── */
+  /* ─────────────────── Render ─────────────────── */
   return (
     <div className="talleres-page">
       <header className="talleres-header">
@@ -392,11 +539,6 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
       </header>
 
       {errorCarga && <p className="talleres-estado talleres-estado--error" role="alert">{errorCarga}</p>}
-      {!iniciado && (
-        <p className="talleres-estado talleres-estado--aviso" role="status">
-          Este taller empieza el {formatFecha(taller.startsAt)}. Hasta entonces no se puede tomar asistencia.
-        </p>
-      )}
 
       <Stepper fase={fase} />
 
@@ -409,9 +551,17 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
               <div className="sesion-form__head">
                 <div>
                   <h2 className="sesion-form__titulo">Datos de la sesión</h2>
-                  <p className="sesion-form__sub">Sirven para el resumen que compartes con las familias; no se guardan en el sistema.</p>
+                  <p className="sesion-form__sub">
+                    {estaEnCurso
+                      ? 'Sesión en curso · la hora de inicio está fija. Solo puedes editar el contenido.'
+                      : !esNueva
+                        ? 'Sesión programada · revisa sus datos, guárdalos o inicia la sesión.'
+                        : 'Nueva sesión · completa los datos para programarla o iniciarla ya.'}
+                  </p>
                 </div>
-                <span className="tag-borrador">Para el resumen</span>
+                <span className={`sesion-modo sesion-modo--${estaEnCurso ? 'curso' : esNueva ? 'nueva' : 'programada'}`}>
+                  {estaEnCurso ? 'En curso' : esNueva ? 'Nueva' : 'Programada'}
+                </span>
               </div>
 
               <div className="form-fila-4">
@@ -420,32 +570,35 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
                   <input id="ses-taller" className="form-input" value={taller.name} readOnly />
                 </div>
                 <div className="form-campo">
-                  <label className="form-label" htmlFor="ses-fecha">Fecha</label>
+                  <label className="form-label" htmlFor="ses-fecha">Fecha *</label>
                   <input id="ses-fecha" type="date" className="form-input" value={sesion.fecha}
-                    min={toBogotaDateInput(taller.startsAt) || undefined} max={todayBogota()}
-                    onChange={e => setSesion(s => ({ ...s, fecha: e.target.value }))} />
+                    min={fechaMin}
+                    disabled={estaEnCurso}
+                    onChange={e => { setSesion(s => ({ ...s, fecha: e.target.value })); setErrorContinuar('') }} />
                 </div>
                 <div className="form-campo">
-                  <label className="form-label" htmlFor="ses-hi">Hora de inicio</label>
+                  <label className="form-label" htmlFor="ses-hi">Hora inicio *</label>
                   <input id="ses-hi" type="time" className="form-input" value={sesion.horaInicio}
-                    onChange={e => setSesion(s => ({ ...s, horaInicio: e.target.value }))} />
-                </div>
-                <div className="form-campo">
-                  <label className="form-label" htmlFor="ses-hf">Hora de fin</label>
-                  <input id="ses-hf" type="time" className="form-input" value={sesion.horaFin}
-                    onChange={e => setSesion(s => ({ ...s, horaFin: e.target.value }))} />
+                    disabled={estaEnCurso}
+                    onChange={e => { setSesion(s => ({ ...s, horaInicio: e.target.value })); setErrorContinuar('') }} />
                 </div>
               </div>
+              {!estaEnCurso && (
+                <button type="button" className="btn-ahora" onClick={usarAhora}>
+                  Usar fecha y hora actuales
+                </button>
+              )}
 
               <div className="form-campo">
-                <label className="form-label" htmlFor="ses-tema">Tema de la clase</label>
-                <input id="ses-tema" type="text" className="form-input" value={sesion.tema} placeholder="Ej: Ritmo con palmas y tambor"
+                <label className="form-label" htmlFor="ses-tema">Tema de la sesión *</label>
+                <input id="ses-tema" type="text" className="form-input" value={sesion.tema}
+                  maxLength={150} placeholder="Ej: Ritmo con palmas y tambor"
                   onChange={e => setSesion(s => ({ ...s, tema: e.target.value }))} />
               </div>
 
               <div className="form-campo">
                 <label className="form-label" htmlFor="ses-obj">Objetivo</label>
-                <textarea id="ses-obj" className="form-textarea" rows={3} value={sesion.objetivo}
+                <textarea id="ses-obj" className="form-textarea" rows={3} maxLength={1000} value={sesion.objetivo}
                   onChange={e => setSesion(s => ({ ...s, objetivo: e.target.value }))} />
               </div>
 
@@ -482,10 +635,35 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
                     </span>
                   ))}
                 </div>
-                <input className="form-input form-input--sm" placeholder="Agregar material y presionar Enter..." aria-label="Nuevo material"
-                  value={nuevoMaterial} onChange={e => setNuevoMaterial(e.target.value)}
+                <input className="form-input form-input--sm" placeholder="Agregar material y presionar Enter..."
+                  aria-label="Nuevo material" value={nuevoMaterial}
+                  onChange={e => setNuevoMaterial(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && agregarMaterial()} />
               </div>
+
+              {errorContinuar && <p className="talleres-estado talleres-estado--error" role="alert">{errorContinuar}</p>}
+              {!errorContinuar && motivoNoIniciar && inicioISO && (
+                <p className="talleres-estado talleres-estado--aviso sesion-aviso" role="status">{motivoNoIniciar}</p>
+              )}
+
+              {estaEnCurso ? (
+                <button type="button" className="btn-publicar" onClick={() => continuar(true)}
+                  disabled={continuando || !temaValido}>
+                  {continuando ? 'Guardando…' : 'Guardar y continuar'}
+                </button>
+              ) : (
+                <div className="sesion-acciones">
+                  <button type="button" className="btn-volver sesion-acciones__sec" onClick={() => continuar(false)}
+                    disabled={continuando || !temaValido || !inicioISO}>
+                    {continuando ? 'Guardando…' : esNueva ? 'Guardar como programada' : 'Guardar cambios'}
+                  </button>
+                  <button type="button" className="btn-publicar sesion-acciones__pri" onClick={() => continuar(true)}
+                    disabled={continuando || !temaValido || !inicioISO || Boolean(motivoNoIniciar)}
+                    title={motivoNoIniciar ?? undefined}>
+                    {continuando ? 'Guardando…' : 'Guardar e iniciar sesión'}
+                  </button>
+                </div>
+              )}
             </div>
 
             <aside className="vista-previa">
@@ -497,13 +675,20 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
                 <div className="vp-fila"><span className="vp-label">Fecha</span><span className="vp-valor">{fechaDisplay}</span></div>
                 <div className="vp-fila">
                   <span className="vp-label">Horario</span>
-                  <span className="vp-valor vp-valor--teal">{sesion.horaInicio || '—'}{sesion.horaFin ? `–${sesion.horaFin}` : ''}</span>
+                  <span className="vp-valor vp-valor--teal">{inicioISO ? formatHora(inicioISO) : '—'}</span>
                 </div>
                 <div className="vp-fila"><span className="vp-label">Participantes</span><span className="vp-valor vp-valor--teal">{total} inscritos</span></div>
+                <div className="vp-fila"><span className="vp-label">Pasos</span><span className="vp-valor">{sesion.pasos.length}</span></div>
               </div>
-              <button type="button" className="btn-publicar" onClick={() => setFase(2)} disabled={!sesion.fecha}>
-                Continuar a asistencia
-              </button>
+              {sesion.materiales.length > 0 && (
+                <>
+                  <hr className="vista-previa__sep" />
+                  <p className="vp-label">Materiales que deben llevar</p>
+                  <ul className="vp-materiales" role="list">
+                    {sesion.materiales.map((m, i) => <li key={i}>{m}</li>)}
+                  </ul>
+                </>
+              )}
             </aside>
           </>
         )}
@@ -515,7 +700,7 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
               <div className="asistencia-card__head">
                 <div>
                   <h2 className="asistencia-card__titulo">Lista del grupo</h2>
-                  <p className="asistencia-card__sub">{taller.name} · {fechaDisplay}</p>
+                  <p className="asistencia-card__sub">{taller.name} · {sessionActual?.topic || sesion.tema || 'Sesión'}</p>
                 </div>
                 <span className="asistencia-card__contador">{totalPresentes} de {total} presentes</span>
               </div>
@@ -525,23 +710,24 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
                 ) : estudiantes.length === 0 ? (
                   <li className="asistencia-cargando">No hay participantes disponibles.</li>
                 ) : estudiantes.map(p => {
-                  const nombre = nombreDe(p, `Estudiante ${p.childId}`)
-                  const registrado = Boolean(delDia[p.childId])
-                  const presente = marcado(p.childId)
+                  const nombre   = nombreDe(p, `Estudiante ${p.childId}`)
+                  const presente = isPresente(p.childId)
                   return (
                     <li key={p.childId} className="asistencia-item">
                       <div className="asistencia-avatar">{iniciales(nombre)}</div>
                       <span className="asistencia-nombre">{nombre}</span>
-                      {registrado ? (
-                        <span className="asistencia-registrada">✓ Ya registrado</span>
-                      ) : (
-                        <div className="asistencia-toggle" role="group" aria-label={`Asistencia de ${nombre}`}>
-                          <button type="button" aria-pressed={presente} className={`toggle-btn${presente ? ' toggle-btn--asistio' : ''}`}
-                            onClick={() => setAsistencia(a => ({ ...a, [p.childId]: true }))}>Asistió</button>
-                          <button type="button" aria-pressed={!presente} className={`toggle-btn${!presente ? ' toggle-btn--ausente' : ''}`}
-                            onClick={() => setAsistencia(a => ({ ...a, [p.childId]: false }))}>No asistió</button>
-                        </div>
-                      )}
+                      <div className="asistencia-toggle" role="group" aria-label={`Asistencia de ${nombre}`}>
+                        <button type="button" aria-pressed={presente}
+                          className={`toggle-btn${presente ? ' toggle-btn--asistio' : ''}`}
+                          onClick={() => setAsistenciaLocal(a => ({ ...a, [p.childId]: true }))}>
+                          Asistió
+                        </button>
+                        <button type="button" aria-pressed={!presente}
+                          className={`toggle-btn${!presente ? ' toggle-btn--ausente' : ''}`}
+                          onClick={() => setAsistenciaLocal(a => ({ ...a, [p.childId]: false }))}>
+                          No asistió
+                        </button>
+                      </div>
                     </li>
                   )
                 })}
@@ -559,14 +745,16 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
               <p className="resumen__titulo">Participantes presentes</p>
               <p className="resumen__sub">{total - totalPresentes} {total - totalPresentes === 1 ? 'ausente' : 'ausentes'} · {pct}% de asistencia</p>
               <button type="button" className="btn-publicar" onClick={guardarAsistencia}
-                disabled={guardandoAsistencia || cargando || !iniciado || (porRegistrar.length === 0 && yaRegistrados === 0)}>
+                disabled={guardandoAsistencia || cargando}>
                 {guardandoAsistencia ? 'Registrando…'
-                  : porRegistrar.length > 0 ? `Guardar ${porRegistrar.length} y continuar` : 'Continuar a valoraciones'}
+                  : hayPendientesAsis ? 'Guardar cambios y continuar' : 'Continuar a valoraciones'}
               </button>
-              {erroresAsistencia.length > 0 && yaRegistrados > 0 && (
+              {erroresAsistencia.length > 0 && asistencias.length > 0 && (
                 <button type="button" className="btn-volver" onClick={() => irAValoraciones()}>Continuar con los registrados</button>
               )}
-              <button type="button" className="btn-volver" onClick={() => setFase(1)}>Volver a datos</button>
+              <button type="button" className="btn-volver" onClick={() => setFase(1)}>
+                {estaEnCurso ? 'Editar datos de la sesión' : 'Volver a datos'}
+              </button>
             </aside>
           </>
         )}
@@ -579,10 +767,12 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
               <ul className="val-sidebar__lista" role="list">
                 {presentesLista.map(p => {
                   const nombre = nombreDe(p, `Estudiante ${p.childId}`)
-                  const act = p.childId === activoId
+                  const act    = p.childId === activoId
                   return (
                     <li key={p.childId}>
-                      <button type="button" className={`val-participante${act ? ' val-participante--activo' : ''}`} onClick={() => setParticipanteActivo(p.childId)}>
+                      <button type="button"
+                        className={`val-participante${act ? ' val-participante--activo' : ''}`}
+                        onClick={() => setParticipanteActivo(p.childId)}>
                         <div className={`val-participante__avatar${act ? ' val-participante__avatar--activo' : ''}`}>{iniciales(nombre)}</div>
                         <div className="val-participante__info">
                           <p className="val-participante__nombre">{nombre}</p>
@@ -603,11 +793,13 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
                 </div>
               </div>
 
-              {presentesLista.length === 0 && <p className="talleres-estado">Nadie tiene asistencia registrada en esta sesión. Vuelve al paso 2.</p>}
-
+              {presentesLista.length === 0 && (
+                <p className="talleres-estado">Nadie tiene asistencia registrada. Vuelve al paso 2.</p>
+              )}
               {activoId && dimensiones.length === 0 && (
                 <p className="talleres-estado talleres-estado--aviso">Este taller no tiene habilidades configuradas.</p>
               )}
+
               {activoId && dimensiones.map((dim, di) => {
                 const valoradas = dim.habilidades.filter(h => getVal(activoId, h.id)).length
                 return (
@@ -617,18 +809,22 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
                       <span className="val-dimension__logrados">{valoradas} de {dim.habilidades.length} valoradas</span>
                     </div>
                     {dim.habilidades.map(h => {
-                      const v = getVal(activoId, h.id)
+                      const v       = getVal(activoId, h.id)
                       const guardada = originales[clave(activoId, h.id)] === v && v
                       return (
                         <div key={h.id} className="val-indicador">
-                          <p className="val-indicador__texto">{h.nombre}{guardada ? <span className="val-guardada"> · guardada</span> : null}</p>
+                          <p className="val-indicador__texto">
+                            {h.nombre}{guardada ? <span className="val-guardada"> · guardada</span> : null}
+                          </p>
                           <div className="val-botones">
                             {escalas.map(esc => {
                               const sel = v === String(esc.id)
                               return (
                                 <button key={esc.id} type="button" aria-label={esc.name} aria-pressed={sel}
                                   className={`val-btn val-btn--${String(esc.code).toLowerCase()}${sel ? ' val-btn--sel' : ''}`}
-                                  onClick={() => (sel && guardada ? quitarValoracion(activoId, h.id) : setVal(activoId, h.id, sel ? null : String(esc.id)))}>
+                                  onClick={() => sel && guardada
+                                    ? quitarValoracion(activoId, h.id)
+                                    : setVal(activoId, h.id, sel ? null : String(esc.id))}>
                                   {esc.code}
                                 </button>
                               )
@@ -644,8 +840,10 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
               <div className="val-observacion">
                 <h3 className="val-observacion__titulo">Observación del grupo</h3>
                 <p className="val-observacion__label">¿Cómo le fue al grupo? Se guarda en la asistencia de quienes aún no tienen una observación propia.</p>
-                <textarea className="form-textarea" rows={4} maxLength={1000} value={observacion} aria-label="Observación del grupo"
-                  onChange={e => setObservacion(e.target.value)} placeholder="Describe cómo fue la sesión para el grupo..." />
+                <textarea className="form-textarea" rows={4} maxLength={1000} value={observacion}
+                  aria-label="Observación del grupo"
+                  onChange={e => setObservacion(e.target.value)}
+                  placeholder="Describe cómo fue la sesión para el grupo..." />
               </div>
 
               <div className="val-guardar">
@@ -678,6 +876,18 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
                     <input id="evi-url" className="form-input" inputMode="url" placeholder="https://…" value={evi.url}
                       onChange={e => cambiarUrl(e.target.value)} />
                     {erroresCampoEvi.url && <small className="campo-error" role="alert">{erroresCampoEvi.url}</small>}
+                    {isYoutubeUrl(evi.url) && (
+                      <>
+                        <iframe className="evi-youtube" src={toYoutubeEmbed(evi.url)} allowFullScreen title="Vista previa del video"
+                          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
+                        <small className="evi-youtube__nota">Se guardará como {toYoutubeEmbed(evi.url)}</small>
+                      </>
+                    )}
+                    {!isYoutubeUrl(evi.url) && (sugerido === 'IMAGE' || evi.type === 'IMAGE') && evi.url.trim().startsWith('https://') && (
+                      <img src={evi.url.trim()} alt="Vista previa" className="evi-img-prev"
+                        referrerPolicy="no-referrer"
+                        onError={e => { e.target.style.display = 'none' }} />
+                    )}
                   </div>
                   <div className="form-campo">
                     <label className="form-label" htmlFor="evi-titulo">Título</label>
@@ -688,7 +898,8 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
                 </div>
 
                 <EvidenceTypeField idBase="sesion-evi-type" value={evi.type} sugerido={sugerido}
-                  onChange={t => { setTipoManual(true); setEvi(v => ({ ...v, type: t })) }} error={erroresCampoEvi.type} />
+                  onChange={t => { setTipoManual(true); setEvi(v => ({ ...v, type: t })) }}
+                  error={erroresCampoEvi.type} />
 
                 <fieldset className="evi-quienes">
                   <legend className="form-label">¿Quiénes aparecen? (no marques a quien no tenga autorización de imagen)</legend>
@@ -705,7 +916,8 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
                 </fieldset>
 
                 {errorEvi && <p className="talleres-estado talleres-estado--error" role="alert">{errorEvi}</p>}
-                <button type="submit" className="btn-publicar btn-publicar--sm" disabled={subiendoEvi || presentesLista.length === 0}>
+                <button type="submit" className="btn-publicar btn-publicar--sm"
+                  disabled={subiendoEvi || presentesLista.length === 0}>
                   {subiendoEvi ? 'Guardando…' : 'Agregar evidencia'}
                 </button>
 
@@ -721,25 +933,52 @@ const SesionTaller = ({ taller, onVolver, onTallerActualizado, onFinalizado }) =
                 )}
               </form>
 
-              {/* Navegación */}
+              {/* Footer */}
               <div className="val-footer">
                 <button type="button" className="btn-volver" onClick={() => setFase(2)}>Volver a asistencia</button>
-                <button type="button" className="btn-publicar taller-btn-cierre" onClick={() => { setConfirmandoFin(true); setErrorFin('') }}>
-                  Finalizar taller
+                <button type="button" className="btn-publicar taller-btn-cierre"
+                  onClick={abrirFinalizar}>
+                  Finalizar sesión
                 </button>
               </div>
 
               {confirmandoFin && (
                 <div className="taller-confirmar" role="alertdialog" aria-label="Confirmar finalización">
                   <p>
-                    Al finalizar el taller se registra la fecha de fin (ahora) y <strong>ya no se podrá tomar asistencia ni valorar</strong>.
-                    Para seguir con otra sesión, no lo finalices.
-                    {(pendientesDeGuardar.length > 0 || obsPendiente) && <> <strong>Tienes cambios sin guardar</strong>: guárdalos antes.</>}
+                    Al finalizar la sesión se calculan las calificaciones de los participantes.
+                    <strong> Ya no se podrá tomar asistencia ni valorar en esta sesión.</strong>
+                    {(pendientesDeGuardar.length > 0 || obsPendiente) && (
+                      <> Tienes <strong>cambios sin guardar</strong>: guárdalos antes.</>
+                    )}
                   </p>
-                  {errorFin && <p className="talleres-estado talleres-estado--error" role="alert">{errorFin}</p>}
+                  <p className="fin-aviso">Las valoraciones se suman al progreso de cada joven al finalizar la sesión.</p>
+                  <fieldset className="fin-hora">
+                    <legend className="form-label">Hora real de fin</legend>
+                    <div className="fin-hora__campos">
+                      <label className="fin-hora__campo">
+                        <span>Fecha</span>
+                        <input type="date" className="form-input" value={fin.fecha}
+                          min={toBogotaDateInput(sessionActual?.startsAt) || undefined} max={todayBogota()}
+                          onChange={e => { setFin(f => ({ ...f, fecha: e.target.value })); setErrorFin('') }} />
+                      </label>
+                      <label className="fin-hora__campo">
+                        <span>Hora</span>
+                        <input type="time" className="form-input" value={fin.hora}
+                          onChange={e => { setFin(f => ({ ...f, hora: e.target.value })); setErrorFin('') }} />
+                      </label>
+                      <button type="button" className="btn-ahora fin-hora__ahora" onClick={abrirFinalizar}>Ahora</button>
+                    </div>
+                    <small className="fin-hora__ayuda">
+                      Inició {sessionActual?.startsAt ? `el ${formatFecha(sessionActual.startsAt)} a las ${formatHora(sessionActual.startsAt)}` : '—'} ·
+                      Si terminó más tarde de lo previsto y pisa la siguiente sesión, esa tendrá que corregir su hora de inicio.
+                    </small>
+                  </fieldset>
+                  {(errorFin || errorHoraFin) && (
+                    <p className="talleres-estado talleres-estado--error" role="alert">{errorFin || errorHoraFin}</p>
+                  )}
                   <div className="taller-item__acciones">
-                    <button type="button" className="btn-publicar btn-publicar--sm" disabled={finalizando} onClick={finalizar}>
-                      {finalizando ? 'Finalizando…' : 'Sí, finalizar taller'}
+                    <button type="button" className="btn-publicar btn-publicar--sm" disabled={finalizando || Boolean(errorHoraFin)} onClick={finalizarSesion}>
+                      {finalizando ? 'Finalizando…' : 'Sí, finalizar sesión'}
                     </button>
                     <button type="button" className="btn-volver" onClick={() => setConfirmandoFin(false)}>Volver</button>
                   </div>

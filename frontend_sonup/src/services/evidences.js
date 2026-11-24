@@ -1,5 +1,6 @@
 import { api } from './api.js'
 import { EVIDENCE_TYPES, isEvidenceType } from '../utils/evidenceType.js'
+import { toYoutubeEmbed } from '../utils/youtube.js'
 
 export { EVIDENCE_TYPES }
 
@@ -13,13 +14,15 @@ const assertType = (type) => {
 /** body: { url, title, type: 'IMAGE' | 'VIDEO', studentIds: string[] } */
 export const createEvidence = (body) => {
   assertType(body?.type)
-  return api.post('/evidences', body)
+  // Los videos de YouTube se guardan como /embed/<id> para poder verlos en un <iframe>
+  return api.post('/evidences', { ...body, url: toYoutubeEmbed(body.url) })
 }
 
 /** body: cualquiera de { url, title, type }. Si trae `type`, debe ser válido. */
 export const updateEvidence = (id, body) => {
   if (body && 'type' in body) assertType(body.type)
-  return api.patch(`/evidences/${id}`, body)
+  const datos = body && 'url' in body ? { ...body, url: toYoutubeEmbed(body.url) } : body
+  return api.patch(`/evidences/${id}`, datos)
 }
 
 export const getEvidence = (id) => api.get(`/evidences/${id}`)

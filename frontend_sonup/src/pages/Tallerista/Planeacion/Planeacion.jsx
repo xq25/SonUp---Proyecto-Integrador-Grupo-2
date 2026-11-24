@@ -8,7 +8,10 @@ import {
 import { getSkills, getSkillCategories } from '../../../services/skills.js'
 import { getProfessionals } from '../../../services/professionals.js'
 import { getStaff } from '../../../services/staff.js'
-import { startOfBogotaDay, toBogotaDateInput, todayBogota, formatFecha, nombreDe } from '../../../utils/workshops.js'
+import {
+  getWorkshopSessions, createSession, updateSession, deleteSession,
+} from '../../../services/sessions.js'
+import { startOfBogotaDay, toBogotaDateInput, toBogotaTimeInput, todayBogota, formatFecha, nombreDe } from '../../../utils/workshops.js'
 import './Planeacion.css'
 
 /**
@@ -28,6 +31,7 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
   const [categorias, setCategorias] = useState([])
   const [profesionales, setProfesionales] = useState([])
   const [staff, setStaff]           = useState([])
+  const [sesiones, setSesiones]     = useState({})    // workshopId → session[]
   const [cargando, setCargando]     = useState(true)
   const [errorCarga, setErrorCarga] = useState('')
 
@@ -37,6 +41,15 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
   const [mensaje, setMensaje]       = useState({})     // id → { tipo: 'error' | 'ok', texto }
   const [confirmar, setConfirmar]   = useState(null)   // { id, accion: 'cancelar' | 'eliminar' | 'activar' }
   const [activado, setActivado]     = useState(null)   // taller recién activado (aviso con enlace a Sesiones)
+
+  // Sesiones: form y estado por taller
+  const VACIO_SESION = { fecha: '', horaInicio: '', tema: '', objetivo: '', materiales: '', pasos: '' }
+  const [formSesion, setFormSesion]       = useState(VACIO_SESION)
+  const [mostrarFormSesion, setMostrarFormSesion] = useState(false)
+  const [creandoSesion, setCreandoSesion] = useState(false)
+  const [errorSesion, setErrorSesion]     = useState('')
+  const [editandoSesion, setEditandoSesion] = useState(null)   // { sesion, form }
+  const [sesionBusy, setSesionBusy]       = useState({})       // sessionId → true
 
   const [nuevoAbierto, setNuevoAbierto] = useState(false)
   const [nuevo, setNuevo]           = useState({ name: '', date: '', evaluatorId: '' })
@@ -61,13 +74,22 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
     })
   }, [])
 
+  const cargarSesionesDe = useCallback(async (lista) => {
+    const res = await Promise.allSettled(lista.map(t => getWorkshopSessions(t.id)))
+    setSesiones(prev => {
+      const next = { ...prev }
+      res.forEach((r, i) => { if (r.status === 'fulfilled') next[String(lista[i].id)] = r.value })
+      return next
+    })
+  }, [])
+
   const cargar = useCallback(async () => {
     // El backend ya filtra: un tallerista solo recibe sus talleres; ADMIN recibe todos.
     const lista = await getWorkshops({ status: 'planned' })
     setTalleres(lista)
-    await cargarHabilidadesDe(lista)
+    await Promise.all([cargarHabilidadesDe(lista), cargarSesionesDe(lista)])
     return lista
-  }, [cargarHabilidadesDe])
+  }, [cargarHabilidadesDe, cargarSesionesDe])
 
   useEffect(() => {
     let vivo = true
@@ -109,6 +131,60 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
     }
   }
 
+  /* ── Sesiones (CRUD) ── */
+  const toISOBogota = (fecha, hora) => `${fecha}T${hora}:00-05:00`
+
+  const sesionBodyDe = (form) => {
+    const body = {
+      startsAt: toISOBogota(form.fecha, form.horaInicio),
+      topic: form.tema.trim(),
+    }
+    if (form.objetivo.trim())   body.objective = form.objetivo.trim()
+    if (form.materiales.trim()) body.materials  = form.materiales.trim()
+    if (form.pasos.trim())      body.steps      = form.pasos.trim()
+    return body
+  }
+
+  const agregarSesion = async (workshopId) => {
+    setCreandoSesion(true)
+    setErrorSesion('')
+    try {
+      await createSession(workshopId, sesionBodyDe(formSesion))
+      await cargarSesionesDe([{ id: workshopId }])
+      setFormSesion(VACIO_SESION)
+      setMostrarFormSesion(false)
+    } catch (err) {
+      setErrorSesion(err.message)
+    } finally {
+      setCreandoSesion(false)
+    }
+  }
+
+  const guardarSesion = async (workshopId, sesionId) => {
+    setSesionBusy(b => ({ ...b, [sesionId]: true }))
+    try {
+      await updateSession(sesionId, sesionBodyDe(editandoSesion.form))
+      await cargarSesionesDe([{ id: workshopId }])
+      setEditandoSesion(null)
+    } catch (err) {
+      setErrorSesion(err.message)
+    } finally {
+      setSesionBusy(b => ({ ...b, [sesionId]: false }))
+    }
+  }
+
+  const quitarSesion = async (workshopId, sesionId) => {
+    setSesionBusy(b => ({ ...b, [sesionId]: true }))
+    try {
+      await deleteSession(sesionId)
+      await cargarSesionesDe([{ id: workshopId }])
+    } catch (err) {
+      setErrorSesion(err.message)
+    } finally {
+      setSesionBusy(b => ({ ...b, [sesionId]: false }))
+    }
+  }
+
   /* ── Panel de edición ── */
   const abrir = (t) => {
     const id = String(t.id)
@@ -119,6 +195,10 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
     }))
     avisar(id, 'ok', '')
     setConfirmar(null)
+    setMostrarFormSesion(false)
+    setFormSesion(VACIO_SESION)
+    setEditandoSesion(null)
+    setErrorSesion('')
   }
 
   const editar = (id, campo, valor) =>
@@ -271,9 +351,11 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
         {talleres.map(t => {
           const id = String(t.id)
           const hs = habilidades[id]
+          const ss = sesiones[id]
           const cuantas = hs?.length ?? 0
+          const cuantasSesiones = ss?.length ?? 0
           const tieneFecha = Boolean(t.startsAt)
-          const listo = cuantas > 0 && tieneFecha
+          const listo = cuantas > 0 && tieneFecha && cuantasSesiones > 0
           const futuro = tieneFecha && new Date(t.startsAt) > new Date()
           const d = borrador[id]
           const msg = mensaje[id]
@@ -301,6 +383,9 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
                     <li className={tieneFecha ? 'plan-check plan-check--ok' : 'plan-check'}>
                       {tieneFecha ? 'Con fecha de inicio' : 'Falta la fecha de inicio'}
                     </li>
+                    <li className={cuantasSesiones > 0 ? 'plan-check plan-check--ok' : 'plan-check'}>
+                      {ss === undefined ? 'Sesiones…' : cuantasSesiones > 0 ? `${cuantasSesiones} sesión${cuantasSesiones === 1 ? '' : 'es'}` : 'Falta agregar sesiones'}
+                    </li>
                   </ul>
                 </div>
                 <div className="plan-card__acciones">
@@ -310,7 +395,7 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
                   <button
                     type="button" className="plan-btn plan-btn--primario"
                     disabled={!listo || busy}
-                    title={listo ? 'Pasa el taller a «En curso»' : 'Necesita al menos una habilidad y fecha de inicio'}
+                    title={listo ? 'Pasa el taller a «En curso»' : 'Necesita al menos una habilidad, fecha de inicio y una sesión'}
                     onClick={() => setConfirmar({ id, accion: 'activar' })}
                   >
                     Activar taller
@@ -404,6 +489,133 @@ const Planeacion = ({ isAdmin = false, crearPath }) => {
                         })}
                       </select>
                     </div>
+                  </div>
+
+                  {/* ── Sesiones ── */}
+                  <div className="plan-habs">
+                    <h3 className="plan-habs__titulo">Sesiones programadas</h3>
+                    {ss === undefined || ss.length === 0 ? (
+                      <p className="plan-hint">Aún no hay sesiones. Agrega al menos una para poder activar el taller.</p>
+                    ) : (
+                      <ul className="plan-sesion-lista">
+                        {ss.map(s => {
+                          const sBusy = Boolean(sesionBusy[String(s.id)])
+                          const editando = editandoSesion?.sesion?.id === s.id
+                          const puedeEditar = s.status === 'planned'
+                          return (
+                            <li key={String(s.id)} className="plan-sesion-item">
+                              {editando ? (
+                                <div className="plan-sesion-edit" style={{ flex: 1 }}>
+                                  <div className="plan-campos">
+                                    <div className="plan-campo">
+                                      <label>Fecha</label>
+                                      <input type="date" value={editandoSesion.form.fecha}
+                                        onChange={e => setEditandoSesion(prev => ({ ...prev, form: { ...prev.form, fecha: e.target.value } }))} />
+                                    </div>
+                                    <div className="plan-campo">
+                                      <label>Hora inicio</label>
+                                      <input type="time" value={editandoSesion.form.horaInicio}
+                                        onChange={e => setEditandoSesion(prev => ({ ...prev, form: { ...prev.form, horaInicio: e.target.value } }))} />
+                                    </div>
+                                    <div className="plan-campo plan-campo--ancho">
+                                      <label>Tema</label>
+                                      <input type="text" maxLength={150} value={editandoSesion.form.tema}
+                                        onChange={e => setEditandoSesion(prev => ({ ...prev, form: { ...prev.form, tema: e.target.value } }))} />
+                                    </div>
+                                  </div>
+                                  {errorSesion && <p className="plan-hint plan-hint--error">{errorSesion}</p>}
+                                  <div className="plan-fila-acciones" style={{ marginTop: '0.4rem' }}>
+                                    <button type="button" className="plan-btn plan-btn--primario plan-btn--sm" disabled={sBusy || editandoSesion.form.tema.trim().length < 2}
+                                      onClick={() => guardarSesion(id, s.id)}>
+                                      {sBusy ? 'Guardando…' : 'Guardar'}
+                                    </button>
+                                    <button type="button" className="plan-btn plan-btn--link" onClick={() => { setEditandoSesion(null); setErrorSesion('') }}>Cancelar</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <span className={`plan-sesion-badge plan-sesion-badge--${s.status}`}>
+                                    {s.status === 'planned' ? 'Programada' : s.status === 'in_progress' ? 'En curso' : 'Finalizada'}
+                                  </span>
+                                  <div className="plan-sesion-info">
+                                    <span className="plan-sesion-tema">{s.topic}</span>
+                                    <span className="plan-sesion-horario">
+                                      {toBogotaDateInput(s.startsAt)} · {toBogotaTimeInput(s.startsAt)}
+                                    </span>
+                                  </div>
+                                  {puedeEditar && (
+                                    <span className="plan-sesion-acciones">
+                                      <button type="button" className="plan-btn plan-btn--link plan-btn--sm" disabled={sBusy}
+                                        onClick={() => { setErrorSesion(''); setEditandoSesion({ sesion: s, form: { fecha: toBogotaDateInput(s.startsAt), horaInicio: toBogotaTimeInput(s.startsAt), tema: s.topic || '', objetivo: s.objective || '', materiales: s.materials || '', pasos: s.steps || '' } }) }}>
+                                        Editar
+                                      </button>
+                                      <button type="button" className="plan-btn plan-btn--link plan-btn--rojo plan-btn--sm" disabled={sBusy}
+                                        onClick={() => quitarSesion(id, s.id)}>
+                                        {sBusy ? '…' : 'Eliminar'}
+                                      </button>
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+
+                    {mostrarFormSesion ? (
+                      <div className="plan-sesion-form">
+                        <div className="plan-campos">
+                          <div className="plan-campo">
+                            <label>Fecha</label>
+                            <input type="date" value={formSesion.fecha}
+                              onChange={e => setFormSesion(f => ({ ...f, fecha: e.target.value }))} />
+                          </div>
+                          <div className="plan-campo">
+                            <label>Hora inicio</label>
+                            <input type="time" value={formSesion.horaInicio}
+                              onChange={e => setFormSesion(f => ({ ...f, horaInicio: e.target.value }))} />
+                          </div>
+                          <div className="plan-campo plan-campo--ancho">
+                            <label>Tema <span className="plan-hint">(obligatorio, 2–150 caracteres)</span></label>
+                            <input type="text" maxLength={150} placeholder="Ej: Improvisación en parejas" value={formSesion.tema}
+                              onChange={e => setFormSesion(f => ({ ...f, tema: e.target.value }))} />
+                          </div>
+                          <div className="plan-campo plan-campo--ancho">
+                            <label>Objetivo <span className="plan-hint">(opcional)</span></label>
+                            <input type="text" maxLength={1000} value={formSesion.objetivo}
+                              onChange={e => setFormSesion(f => ({ ...f, objetivo: e.target.value }))} />
+                          </div>
+                          <div className="plan-campo plan-campo--ancho">
+                            <label>Materiales <span className="plan-hint">(opcional, separados por coma)</span></label>
+                            <input type="text" maxLength={1000} placeholder="Ej: Ropa cómoda, tambor" value={formSesion.materiales}
+                              onChange={e => setFormSesion(f => ({ ...f, materiales: e.target.value }))} />
+                          </div>
+                          <div className="plan-campo plan-campo--ancho">
+                            <label>Pasos / actividades <span className="plan-hint">(opcional)</span></label>
+                            <input type="text" maxLength={2000} placeholder="Ej: 1. Calentamiento. 2. Escenas." value={formSesion.pasos}
+                              onChange={e => setFormSesion(f => ({ ...f, pasos: e.target.value }))} />
+                          </div>
+                        </div>
+                        {errorSesion && <p className="plan-hint plan-hint--error">{errorSesion}</p>}
+                        <div className="plan-fila-acciones">
+                          <button type="button" className="plan-btn plan-btn--primario plan-btn--sm"
+                            disabled={creandoSesion || !formSesion.fecha || !formSesion.horaInicio || formSesion.tema.trim().length < 2}
+                            onClick={() => agregarSesion(id)}>
+                            {creandoSesion ? 'Guardando…' : 'Agregar sesión'}
+                          </button>
+                          <button type="button" className="plan-btn plan-btn--link"
+                            onClick={() => { setMostrarFormSesion(false); setFormSesion(VACIO_SESION); setErrorSesion('') }}>
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button type="button" className="plan-btn plan-btn--sec plan-btn--sm" style={{ alignSelf: 'flex-start', marginTop: '0.5rem' }}
+                        onClick={() => { setMostrarFormSesion(true); setErrorSesion('') }}>
+                        + Agregar sesión
+                      </button>
+                    )}
                   </div>
 
                   <div className="plan-peligro">

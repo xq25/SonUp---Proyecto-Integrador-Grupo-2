@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { EVIDENCE_TYPE_LABEL, guessEvidenceType } from '../../utils/evidenceType.js'
+import { isYoutubeUrl, toYoutubeEmbed, youtubeThumbnail } from '../../utils/youtube.js'
 import './EvidencePreview.css'
 
 const ImageIcon = ({ size }) => (
@@ -22,7 +23,8 @@ export const TypeBadge = ({ type }) => (
 /**
  * Vista de una evidencia según su `type`:
  *  - IMAGE → <img>
- *  - VIDEO → <video> si el enlace es un archivo directo (.mp4, .webm…); si es Drive/YouTube no se
+ *  - VIDEO de YouTube → miniatura del video y, en el visor, <iframe> con el enlace /embed/
+ *  - VIDEO → <video> si el enlace es un archivo directo (.mp4, .webm…); si es Drive no se
  *    puede incrustar de forma segura, así que se muestra el icono y el enlace «Abrir».
  * `variant="thumb"` es la miniatura de la tarjeta (nunca reproduce); `"full"` es el visor.
  */
@@ -32,8 +34,28 @@ const EvidencePreview = ({ evidence, variant = 'thumb', fondo }) => {
   const esArchivoVideo = type === 'VIDEO' && guessEvidenceType(url) === 'VIDEO'
   const icono = type === 'IMAGE' ? <ImageIcon size={variant === 'full' ? 34 : 22} /> : <VideoIcon size={variant === 'full' ? 34 : 22} />
 
+  const esYoutube = isYoutubeUrl(url)
+
   let contenido
-  if (type === 'IMAGE' && !fallo) {
+  if (esYoutube && variant === 'full') {
+    contenido = (
+      <iframe
+        className="evp-media evp-iframe"
+        src={toYoutubeEmbed(url)}
+        title={title}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerPolicy="strict-origin-when-cross-origin"
+        allowFullScreen
+      />
+    )
+  } else if (esYoutube && !fallo) {
+    contenido = (
+      <>
+        <img className="evp-media" src={youtubeThumbnail(url)} alt={title} loading="lazy" referrerPolicy="no-referrer" onError={() => setFallo(true)} />
+        <span className="evp-play" aria-hidden="true"><VideoIcon size={22} /></span>
+      </>
+    )
+  } else if (type === 'IMAGE' && !fallo) {
     contenido = <img className="evp-media" src={url} alt={title} loading="lazy" referrerPolicy="no-referrer" onError={() => setFallo(true)} />
   } else if (esArchivoVideo && variant === 'full' && !fallo) {
     contenido = <video className="evp-media" src={url} controls preload="metadata" onError={() => setFallo(true)} />
